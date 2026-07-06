@@ -1,0 +1,24 @@
+data:
+  data_dir: data/mitdb
+  fs: 360
+  lead_index: 0
+  window_before: 128
+  window_after: 128
+  bandpass_low: 0.5
+  bandpass_high: 40.0
+  filter_order: 4
+encoder:
+  kind: none
+  delta_threshold: 0.1
+  rate_num_steps: 256
+model:
+  kind: cnn
+  hidden: 128
+  beta: 0.9
+  n_classes: 5
+train:
+  epochs: 20
+  batch_size: 128
+  lr: 0.001
+  seed: 1337
+  device: cpu
