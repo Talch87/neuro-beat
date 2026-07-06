@@ -1,7 +1,10 @@
 import pytest
 
 from neurocardio.data.splits import (
-    DS1_RECORDS, DS2_RECORDS, PACED_RECORDS, get_split,
+    DS1_RECORDS,
+    DS2_RECORDS,
+    PACED_RECORDS,
+    get_split,
 )
 
 

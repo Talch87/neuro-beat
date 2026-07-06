@@ -5,11 +5,21 @@ _CLASS_INDEX = {c: i for i, c in enumerate(AAMI_CLASSES)}
 
 # MIT-BIH beat symbol -> AAMI class (per EC57). Non-beat markers map to None.
 _SYMBOL_MAP = {
-    "N": "N", "L": "N", "R": "N", "e": "N", "j": "N",
-    "A": "SVEB", "a": "SVEB", "J": "SVEB", "S": "SVEB",
-    "V": "VEB", "E": "VEB",
+    "N": "N",
+    "L": "N",
+    "R": "N",
+    "e": "N",
+    "j": "N",
+    "A": "SVEB",
+    "a": "SVEB",
+    "J": "SVEB",
+    "S": "SVEB",
+    "V": "VEB",
+    "E": "VEB",
     "F": "F",
-    "/": "Q", "f": "Q", "Q": "Q",
+    "/": "Q",
+    "f": "Q",
+    "Q": "Q",
 }
 
 
@@ -17,8 +27,9 @@ def symbol_to_aami(symbol: str):
     return _SYMBOL_MAP.get(symbol)
 
 
-def segment_beats(signal, ann_samples, ann_symbols, window_before: int = 128,
-                  window_after: int = 128):
+def segment_beats(
+    signal, ann_samples, ann_symbols, window_before: int = 128, window_after: int = 128
+):
     n = len(signal)
     beats, labels = [], []
     for s, sym in zip(ann_samples, ann_symbols):
@@ -31,6 +42,8 @@ def segment_beats(signal, ann_samples, ann_symbols, window_before: int = 128,
         beats.append(signal[start:end])
         labels.append(_CLASS_INDEX[cls])
     if not beats:
-        return (np.zeros((0, window_before + window_after), dtype=np.float64),
-                np.zeros((0,), dtype=np.int64))
+        return (
+            np.zeros((0, window_before + window_after), dtype=np.float64),
+            np.zeros((0,), dtype=np.int64),
+        )
     return np.asarray(beats, dtype=np.float64), np.asarray(labels, dtype=np.int64)

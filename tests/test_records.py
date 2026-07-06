@@ -10,11 +10,16 @@ def _write_fixture(dirpath):
     sig[100, 0] = 1.0
     sig[250, 0] = 1.0
     wfdb.wrsamp(
-        "rec1", fs=fs, units=["mV"], sig_name=["MLII"],
-        p_signal=sig, write_dir=str(dirpath),
+        "rec1",
+        fs=fs,
+        units=["mV"],
+        sig_name=["MLII"],
+        p_signal=sig,
+        write_dir=str(dirpath),
     )
     wfdb.wrann(
-        "rec1", "atr",
+        "rec1",
+        "atr",
         sample=np.array([100, 250]),
         symbol=["N", "V"],
         write_dir=str(dirpath),

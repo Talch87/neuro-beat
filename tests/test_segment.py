@@ -15,7 +15,7 @@ def test_symbol_mapping():
     assert symbol_to_aami("E") == "VEB"
     assert symbol_to_aami("F") == "F"
     assert symbol_to_aami("/") == "Q"
-    assert symbol_to_aami("+") is None      # rhythm marker, not a beat
+    assert symbol_to_aami("+") is None  # rhythm marker, not a beat
 
 
 def test_segment_windows_and_labels():
@@ -27,14 +27,14 @@ def test_segment_windows_and_labels():
     )
     assert beats.shape == (3, 256)
     assert beats[0, 128] == 500.0
-    assert list(labels) == [0, 2, 1]        # N=0, VEB=2, SVEB=1
+    assert list(labels) == [0, 2, 1]  # N=0, VEB=2, SVEB=1
 
 
 def test_segment_drops_edge_and_nonbeat_annotations():
     signal = np.zeros(1000, dtype=np.float64)
-    ann_samples = np.array([10, 500, 995])       # 10 and 995 too close to edges
-    ann_symbols = ["N", "+", "N"]                # 500 is a non-beat marker
+    ann_samples = np.array([10, 500, 995])  # 10 and 995 too close to edges
+    ann_symbols = ["N", "+", "N"]  # 500 is a non-beat marker
     beats, labels = segment_beats(
         signal, ann_samples, ann_symbols, window_before=128, window_after=128
     )
-    assert beats.shape[0] == 0                     # all dropped
+    assert beats.shape[0] == 0  # all dropped

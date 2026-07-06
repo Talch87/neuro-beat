@@ -18,14 +18,14 @@ class DataConfig:
 
 @dataclass
 class EncoderConfig:
-    kind: str = "delta"        # "delta" | "rate" | "none"
+    kind: str = "delta"  # "delta" | "rate" | "none"
     delta_threshold: float = 0.1
     rate_num_steps: int = 256
 
 
 @dataclass
 class ModelConfig:
-    kind: str = "snn"          # "snn" | "cnn" | "lstm"
+    kind: str = "snn"  # "snn" | "cnn" | "lstm"
     hidden: int = 128
     beta: float = 0.9
     n_classes: int = 5

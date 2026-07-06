@@ -8,10 +8,10 @@ import wfdb
 @dataclass
 class Record:
     record_id: str
-    signal: np.ndarray      # 1-D single lead, shape [n_samples]
+    signal: np.ndarray  # 1-D single lead, shape [n_samples]
     fs: int
     ann_samples: np.ndarray  # int sample indices of beat annotations
-    ann_symbols: list[str]   # wfdb beat symbols aligned to ann_samples
+    ann_symbols: list[str]  # wfdb beat symbols aligned to ann_samples
 
 
 def load_record(record_dir, record_id: str, lead_index: int = 0) -> Record:
