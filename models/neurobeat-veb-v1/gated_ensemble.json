@@ -1,0 +1,76 @@
+{
+  "model": "NeuroBeat-VEB v1 gated-ensemble cascade",
+  "screener": {
+    "threshold": 0.18,
+    "n_timesteps": 32,
+    "orders": [
+      0,
+      1
+    ],
+    "hidden": 64,
+    "bias": [
+      0.0,
+      -3.0,
+      9.0,
+      -12.0,
+      -12.0
+    ],
+    "recall_target": 0.97,
+    "recall_feasible": false
+  },
+  "confirmer": {
+    "ensemble_seeds": [
+      0,
+      1,
+      2
+    ],
+    "arch": {
+      "threshold": 0.12,
+      "n_timesteps": 64,
+      "orders": [
+        0,
+        1
+      ],
+      "hidden": 128
+    },
+    "bias": [
+      0.0,
+      8.75,
+      7.5,
+      -12.0,
+      -12.0
+    ],
+    "sens_feasible": true
+  },
+  "results": {
+    "ds2": {
+      "VEB_sens": 0.923,
+      "VEB_ppv": 0.6163,
+      "flag_rate": 0.2706,
+      "n": 49693
+    },
+    "svdb": {
+      "VEB_sens": 0.9043,
+      "VEB_ppv": 0.377,
+      "flag_rate": 0.3446,
+      "n": 184520
+    },
+    "incart": {
+      "VEB_sens": 0.9007,
+      "VEB_ppv": 0.8348,
+      "flag_rate": 0.241,
+      "n": 175811
+    }
+  },
+  "synops": {
+    "screener_per_beat": 5986.6,
+    "confirmer_per_flagged": 21433.4,
+    "K": 3,
+    "flag_rate": 0.2706,
+    "average_per_beat": 23385.0,
+    "budget": 25000,
+    "within_budget": true
+  },
+  "meets_all_constraints": true,
+  "protocol": "screener + confirmer operating points fit on DS1-val only; DS2/SVDB/INCART frozen"
+}

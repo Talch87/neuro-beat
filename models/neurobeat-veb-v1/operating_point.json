@@ -1,0 +1,60 @@
+{
+  "model": "NeuroBeat-VEB v1",
+  "task": "VEB-vs-rest (ventricular ectopic beat detection)",
+  "architecture": {
+    "threshold": 0.12,
+    "n_timesteps": 64,
+    "orders": [
+      0,
+      1
+    ],
+    "hidden": 128
+  },
+  "n_classes": 5,
+  "bias": [
+    0.0,
+    -3.0,
+    8.5,
+    -12.0,
+    -12.0
+  ],
+  "chosen_seed": 2,
+  "operating_point": "sens-first: max VEB PPV s.t. VEB sens >= 0.9 on DS1-val",
+  "training_data": "MIT-BIH DS1-train (pure, no augmentation)",
+  "val": {
+    "VEB_sens": 0.9001,
+    "VEB_ppv": 0.3529
+  },
+  "ds2": {
+    "VEB_sens": 0.8944,
+    "VEB_ppv": 0.4897,
+    "n": 49693
+  },
+  "svdb": {
+    "VEB_sens": 0.892,
+    "VEB_ppv": 0.3612,
+    "n": 184520
+  },
+  "incart": {
+    "VEB_sens": 0.8802,
+    "VEB_ppv": 0.7363,
+    "n": 175811
+  },
+  "synops_per_beat": 14199.0,
+  "ds2_over_seeds": {
+    "seeds": 5,
+    "VEB_sens": {
+      "mean": 0.9048,
+      "min": 0.878
+    },
+    "VEB_ppv": {
+      "mean": 0.5386,
+      "min": 0.4897
+    }
+  },
+  "targets": {
+    "VEB_sens": ">=0.90",
+    "VEB_ppv": "0.60-0.70",
+    "synops": "<=25000"
+  }
+}

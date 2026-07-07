@@ -1,0 +1,68 @@
+{
+  "model": "NeuroBeat-VEB v1 two-stage cascade",
+  "stage1": {
+    "role": "high-recall screener",
+    "threshold": 0.12,
+    "n_timesteps": 32,
+    "orders": [
+      0,
+      1
+    ],
+    "hidden": 128,
+    "bias": [
+      0.0,
+      -3.0,
+      9.0,
+      -12.0,
+      -12.0
+    ],
+    "recall_target": 0.97,
+    "recall_feasible": false
+  },
+  "stage2": {
+    "role": "high-precision confirmer (frozen v1)",
+    "threshold": 0.12,
+    "n_timesteps": 64,
+    "orders": [
+      0,
+      1
+    ],
+    "hidden": 128,
+    "bias": [
+      0.0,
+      -3.0,
+      9.0,
+      -12.0,
+      -12.0
+    ],
+    "sens_feasible": false
+  },
+  "results": {
+    "DS2": {
+      "VEB_sens": 0.8826,
+      "VEB_ppv": 0.6222,
+      "flag_rate": 0.1853,
+      "n": 49693
+    },
+    "svdb": {
+      "VEB_sens": 0.8725,
+      "VEB_ppv": 0.3956,
+      "flag_rate": 0.2259,
+      "n": 184520
+    },
+    "incart": {
+      "VEB_sens": 0.8413,
+      "VEB_ppv": 0.8029,
+      "flag_rate": 0.1699,
+      "n": 175811
+    }
+  },
+  "synops": {
+    "stage1_per_beat": 14322.9,
+    "stage2_per_flagged": 27351.4,
+    "flag_rate": 0.1853,
+    "average_per_beat": 19392.2,
+    "budget": 25000
+  },
+  "protocol": "both operating points fit on DS1-val only; DS2/SVDB/INCART frozen"
+}
