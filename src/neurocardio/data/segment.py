@@ -47,3 +47,42 @@ def segment_beats(
             np.zeros((0,), dtype=np.int64),
         )
     return np.asarray(beats, dtype=np.float64), np.asarray(labels, dtype=np.int64)
+
+
+def beat_rr_features(
+    ann_samples, ann_symbols, n_samples, window_before: int = 128, window_after: int = 128
+):
+    """Per-beat RR-interval features aligned 1:1 with segment_beats output.
+
+    Returns [n_beats, 3]: [pre_RR / median_RR, post_RR / median_RR, pre_RR / post_RR].
+    Ratios are patient-normalized (divided by the record's median RR), so they are
+    dimensionless and inter-patient robust. Premature beats (SVEB, many VEB) have a
+    short pre_RR, so pre_RR/median_RR < 1 -- the timing cue morphology alone lacks.
+    """
+    s = np.asarray(ann_samples, dtype=np.float64)
+    is_beat = np.array([symbol_to_aami(sym) is not None for sym in ann_symbols], dtype=bool)
+    beat_samples = s[is_beat]
+    diffs = np.diff(beat_samples)
+    median_rr = float(np.median(diffs)) if len(diffs) else 1.0
+    if median_rr <= 0:
+        median_rr = 1.0
+    pre = np.full(len(beat_samples), median_rr)
+    post = np.full(len(beat_samples), median_rr)
+    if len(diffs):
+        pre[1:] = diffs
+        post[:-1] = diffs
+
+    feats = []
+    bi = 0
+    for samp, sym in zip(ann_samples, ann_symbols):
+        if symbol_to_aami(sym) is None:
+            continue
+        p, q = pre[bi], post[bi]
+        bi += 1
+        start, end = samp - window_before, samp + window_after
+        if start < 0 or end > n_samples:
+            continue
+        feats.append([p / median_rr, q / median_rr, p / max(q, 1.0)])
+    if not feats:
+        return np.zeros((0, 3), dtype=np.float64)
+    return np.asarray(feats, dtype=np.float64)
