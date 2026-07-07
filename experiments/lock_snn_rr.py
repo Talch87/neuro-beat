@@ -65,6 +65,22 @@ def raw_external(cfg, name, record_dir, lead):
     return beats, labels, rr
 
 
+def subsample_normal(beats, labels, rr, n_cap, seed=0):
+    """Keep every non-Normal beat; cap the Normal class at n_cap. Used when adding an
+    external database to TRAINING: the rare classes (SVEB, VEB) are the point, and
+    MIT-BIH already supplies plenty of Normal, so we do not need all of the external
+    Normal beats (they only slow training). Deterministic given seed."""
+    rng = np.random.default_rng(seed)
+    keep = []
+    for c in range(N_CLASSES):
+        idx = np.where(labels == c)[0]
+        if c == 0 and len(idx) > n_cap:
+            idx = rng.choice(idx, n_cap, replace=False)
+        keep.append(idx)
+    keep = np.sort(np.concatenate(keep))
+    return beats[keep], labels[keep], rr[keep]
+
+
 def enc(beats, threshold, T, orders, tag):
     f = CACHE / f"{tag}_thr{threshold}_T{T}_o{''.join(map(str, orders))}.npy"
     if f.exists():
@@ -213,15 +229,26 @@ def run_once(p, data, device, seed):
     return res, model.state_dict()
 
 
-def load_data(cfg, p, device, external_specs=None):
+def load_data(cfg, p, device, external_specs=None, augment_specs=None, n_cap=20000):
     trb, trl, trr = raw_group(cfg, TRAIN_RECORDS, "trainsub")
+    train_tag = "trainsub"
+    # Augmentation: add external databases to the TRAINING set (test stays MIT-BIH DS2).
+    for name, record_dir, lead in augment_specs or []:
+        ab, al, ar = raw_external(cfg, name, record_dir, lead)
+        ab, al, ar = subsample_normal(ab, al, ar, n_cap)
+        trb, trl, trr = (
+            np.concatenate([trb, ab]),
+            np.concatenate([trl, al]),
+            np.concatenate([trr, ar]),
+        )
+        train_tag += f"_{name}"
     vab, val, var = raw_group(cfg, VAL_RECORDS, "val")
     teb, tel, ter = raw_group(cfg, DS2_RECORDS, "test")
     thr, T, orders = p["threshold"], p["n_timesteps"], p["orders"]
-    # standardize RR features on train stats only (frozen preprocessing)
+    # standardize RR features on (possibly augmented) train stats only
     mu, sd = trr.mean(0), trr.std(0) + 1e-6
     to_t = lambda a: torch.from_numpy(((a - mu) / sd).astype(np.float32)).to(device)  # noqa: E731
-    trx = torch.from_numpy(enc(trb, thr, T, orders, "trainsub")).to(device)
+    trx = torch.from_numpy(enc(trb, thr, T, orders, train_tag)).to(device)
     vax = torch.from_numpy(enc(vab, thr, T, orders, "val")).to(device)
     tex = torch.from_numpy(enc(teb, thr, T, orders, "test")).to(device)
     trl_t = torch.from_numpy(trl.astype(np.int64)).to(device)
@@ -242,24 +269,36 @@ def main():
     ap.add_argument(
         "--external",
         default="",
-        help="comma list of name:dir:lead, e.g. svdb:data/svdb:0,incart:data/incartdb:1",
+        help="comma list of name:dir:lead to TEST on, e.g. svdb:data/svdb:0,incart:data/incartdb:1",
     )
+    ap.add_argument(
+        "--augment",
+        default="",
+        help="comma list of name:dir:lead to ADD to TRAINING (do not also --external the same db)",
+    )
+    ap.add_argument("--augment-n-cap", type=int, default=20000, help="cap on Normal beats per aug db")
     args = ap.parse_args()
     device = resolve_device("auto")
     cfg = Config()
 
-    external_specs = []
-    for item in filter(None, args.external.split(",")):
-        name, record_dir, lead = item.rsplit(":", 2)
-        external_specs.append((name, record_dir, int(lead)))
+    def parse_specs(s):
+        out = []
+        for item in filter(None, s.split(",")):
+            name, record_dir, lead = item.rsplit(":", 2)
+            out.append((name, record_dir, int(lead)))
+        return out
+
+    external_specs = parse_specs(args.external)
+    augment_specs = parse_specs(args.augment)
     ext_names = [n for n, _, _ in external_specs]
     print(
-        f"device={device} train={len(TRAIN_RECORDS)} recs, val={VAL_RECORDS}, external={ext_names}",
+        f"device={device} train={len(TRAIN_RECORDS)} MIT-BIH recs "
+        f"+ augment={[n for n, _, _ in augment_specs]}, val={VAL_RECORDS}, external={ext_names}",
         flush=True,
     )
 
     p = json.loads(args.validate)
-    data = load_data(cfg, p, device, external_specs)
+    data = load_data(cfg, p, device, external_specs, augment_specs, args.augment_n_cap)
     rows = []
     for s in range(args.seeds):
         r, _ = run_once(p, data, device, s)
