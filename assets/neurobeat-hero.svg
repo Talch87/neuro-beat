@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" font-family="'Segoe UI', system-ui, sans-serif" role="img" aria-label="NeuroBeat: a spiking neural network for arrhythmia detection on a sub-milliwatt patch">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1322"/>
+      <stop offset="1" stop-color="#111f38"/>
+    </linearGradient>
+    <linearGradient id="sig" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38e1c6"/>
+      <stop offset="1" stop-color="#4aa8ff"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arw" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3a5578"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="340" rx="22" fill="url(#panel)"/>
+
+  <!-- header -->
+  <circle cx="52" cy="60" r="7" fill="#38e1c6" filter="url(#glow)"/>
+  <text x="72" y="74" font-size="48" font-weight="800" fill="#eaf2ff" letter-spacing="0.5">NeuroBeat</text>
+  <text x="74" y="106" font-size="19" fill="#8ccbea">Reading the heart with the physics of a brain.</text>
+  <text x="74" y="131" font-size="13" fill="#5f7d99">A spiking neural network that spots arrhythmias on a sub-milliwatt wearable patch.</text>
+  <line x1="72" y1="152" x2="1128" y2="152" stroke="#22314c" stroke-width="1"/>
+
+  <!-- stage 1: ECG -->
+  <polyline fill="none" stroke="url(#sig)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"
+    points="66,250 96,250 108,238 120,250 142,250 152,260 162,204 172,276 184,250 206,234 224,250 296,250"/>
+  <text x="180" y="308" font-size="13" fill="#7d97b3" text-anchor="middle">continuous ECG</text>
+  <line x1="304" y1="250" x2="344" y2="250" stroke="#3a5578" stroke-width="2" marker-end="url(#arw)"/>
+
+  <!-- stage 2: delta spikes -->
+  <g stroke-linecap="round">
+    <line x1="372" y1="250" x2="372" y2="214" stroke="#3ddc84" stroke-width="3"/>
+    <line x1="388" y1="250" x2="388" y2="220" stroke="#3ddc84" stroke-width="3"/>
+    <line x1="404" y1="250" x2="404" y2="210" stroke="#3ddc84" stroke-width="3"/>
+    <line x1="430" y1="250" x2="430" y2="286" stroke="#ffb454" stroke-width="3"/>
+    <line x1="446" y1="250" x2="446" y2="282" stroke="#ffb454" stroke-width="3"/>
+    <line x1="492" y1="250" x2="492" y2="222" stroke="#3ddc84" stroke-width="3"/>
+  </g>
+  <line x1="360" y1="250" x2="512" y2="250" stroke="#2b3f5e" stroke-width="1"/>
+  <text x="436" y="308" font-size="13" fill="#7d97b3" text-anchor="middle">up / down spikes</text>
+  <line x1="520" y1="250" x2="560" y2="250" stroke="#3a5578" stroke-width="2" marker-end="url(#arw)"/>
+
+  <!-- stage 3: spiking network -->
+  <g stroke="#2b3f5e" stroke-width="1">
+    <line x1="596" y1="226" x2="688" y2="206"/><line x1="596" y1="226" x2="688" y2="236"/>
+    <line x1="596" y1="226" x2="688" y2="266"/><line x1="596" y1="226" x2="688" y2="296"/>
+    <line x1="596" y1="274" x2="688" y2="206"/><line x1="596" y1="274" x2="688" y2="236"/>
+    <line x1="596" y1="274" x2="688" y2="266"/><line x1="596" y1="274" x2="688" y2="296"/>
+  </g>
+  <line x1="596" y1="226" x2="688" y2="236" stroke="#4aa8ff" stroke-width="1.5"/>
+  <line x1="596" y1="274" x2="688" y2="266" stroke="#38e1c6" stroke-width="1.5"/>
+  <g>
+    <circle cx="596" cy="226" r="9" fill="#38e1c6"/>
+    <circle cx="596" cy="274" r="9" fill="#16233b" stroke="#4aa8ff" stroke-width="1.5"/>
+    <circle cx="688" cy="206" r="9" fill="#16233b" stroke="#4aa8ff" stroke-width="1.5"/>
+    <circle cx="688" cy="236" r="9" fill="#38e1c6"/>
+    <circle cx="688" cy="266" r="9" fill="#16233b" stroke="#4aa8ff" stroke-width="1.5"/>
+    <circle cx="688" cy="296" r="9" fill="#16233b" stroke="#4aa8ff" stroke-width="1.5"/>
+  </g>
+  <text x="642" y="308" font-size="13" fill="#7d97b3" text-anchor="middle">spiking net · 1,029 params</text>
+  <line x1="716" y1="250" x2="792" y2="250" stroke="#3a5578" stroke-width="2" marker-end="url(#arw)"/>
+
+  <!-- stage 4: output -->
+  <rect x="812" y="228" width="128" height="46" rx="23" fill="#123023" stroke="#3ddc84" stroke-width="1.5"/>
+  <text x="876" y="257" font-size="20" font-weight="700" fill="#7dedb0" text-anchor="middle">VEB detected</text>
+  <text x="876" y="308" font-size="13" fill="#7d97b3" text-anchor="middle">AAMI beat class</text>
+
+  <!-- energy chip -->
+  <rect x="988" y="222" width="150" height="58" rx="12" fill="#0e1a2e" stroke="#22314c"/>
+  <text x="1063" y="246" font-size="12" fill="#5f7d99" text-anchor="middle">energy per beat</text>
+  <text x="1063" y="268" font-size="17" font-weight="700" fill="#8ccbea" text-anchor="middle">event-driven</text>
+</svg>
