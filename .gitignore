@@ -4,3 +4,7 @@ __pycache__/
 *.egg-info/
 runs/
 *.pt
+
+# local secrets (RunPod API key etc.)
+.env
+*.env
