@@ -21,6 +21,8 @@ class EncoderConfig:
     kind: str = "delta"  # "delta" | "rate" | "none"
     delta_threshold: float = 0.1
     rate_num_steps: int = 256
+    n_timesteps: int = 256  # pooled SNN timesteps; 256 = one bin per sample (legacy)
+    derivative_orders: list = field(default_factory=lambda: [0])  # 0=raw, 1=1st, 2=2nd
 
 
 @dataclass
