@@ -117,20 +117,23 @@ Notes on the results:
 ### Current work: raising VEB precision honestly
 
 The open question is whether a small SNN can reach VEB sensitivity >= 0.90 and VEB PPV >= 0.50
-at the same time, on the inter-patient split, within a 25,000 SynOps per beat budget. Two
-changes are being tested:
+at the same time, on the inter-patient split, within a 25,000 SynOps per beat budget. Progress
+so far:
 
 - A low-timestep count-pooled encoder ([`encoding/beat.py`](src/neurocardio/encoding/beat.py))
-  that pools spikes into fewer time bins. It trains about 16x faster and lowers SynOps per beat.
+  pools spikes into fewer time bins and trains about 16x faster.
 - RR-interval timing features (patient-normalized pre-RR and post-RR ratios) fed into the
   hidden layer. Premature beats have a short pre-RR, a cue that beat shape alone does not carry.
-  This roughly doubled VEB precision at 90% recall on DS2, from about 0.15 to about 0.32.
+  With a small hidden layer this roughly doubled VEB precision at 90% recall, from about 0.15 to 0.32.
+- Widening the hidden layer to 256 units with denser input spikes lifted VEB precision at 90%
+  recall to about 0.68, clearing the 0.50 target. So discrimination is not the blocker.
 
-Operating points are chosen only on a validation holdout carved out of DS1 and then frozen
-before touching DS2 (see [`experiments/lock_snn_rr.py`](experiments/lock_snn_rr.py)), so the
-test set tunes nothing. The current best is still below the 0.50 VEB PPV target, which points
-to a discrimination ceiling for the two-layer network within the SynOps budget. Live status and
-the latest numbers are on the [results dashboard](https://talch87.github.io/neuro-beat/).
+The catch is energy. The configuration that discriminates well costs about 108,000 SynOps per
+beat, roughly 4.3x the 25,000 budget, because a wider hidden layer and denser spikes are also
+what drive SynOps up. Current work maps the best discrimination achievable within the budget
+(see [`experiments/lock_snn_rr.py`](experiments/lock_snn_rr.py), operating points fit only on a
+DS1 holdout and frozen for DS2). Live status is on the
+[results dashboard](https://talch87.github.io/neuro-beat/).
 
 ## Roadmap
 

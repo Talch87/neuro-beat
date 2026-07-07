@@ -118,36 +118,37 @@
       <div class="label">VEB sensitivity</div>
       <div class="val">0.90 reachable</div>
       <div class="target">target &ge; 0.90</div>
-      <span class="chip warn">reachable, but with a PPV cost</span>
+      <span class="chip ok">reachable</span>
     </div>
     <div class="tile">
       <div class="label">VEB PPV @ 90% recall</div>
-      <div class="val">~0.32</div>
+      <div class="val">0.68</div>
       <div class="target">target &ge; 0.50</div>
-      <span class="chip bad">below target (binding constraint)</span>
+      <span class="chip ok">achievable (wide hidden layer)</span>
     </div>
     <div class="tile">
       <div class="label">SVEB sensitivity</div>
-      <div class="val">~0.41</div>
+      <div class="val">~0.45</div>
       <div class="target">target &ge; 0.45</div>
       <span class="chip warn">borderline</span>
     </div>
     <div class="tile">
       <div class="label">SynOps / beat</div>
-      <div class="val">&lt; 25k (est.)</div>
+      <div class="val">~108k</div>
       <div class="target">target &le; 25,000</div>
-      <span class="chip warn">on track, exact value pending</span>
+      <span class="chip bad">over budget (binding constraint)</span>
     </div>
   </div>
 
   <div class="bottomline">
-    <p style="margin:0 0 6px"><strong>Bottom line.</strong> The binding constraint is VEB positive predictivity (PPV)
-    at 90% sensitivity. The two-layer spiking network's discrimination plateaus around 0.32 precision at that recall,
-    below the 0.50 target.</p>
-    <p style="margin:0">Adding RR-interval timing features roughly doubled it (from about 0.15 to 0.32), which confirms
-    the direction is right but not yet sufficient. Reaching 0.50 likely needs a spiking-convolutional front end, which
-    would raise SynOps above the 25k budget. A maximum-capacity ceiling test and a val-locked 5-seed evaluation are
-    running now to confirm this and produce final honest numbers.</p>
+    <p style="margin:0 0 6px"><strong>Bottom line.</strong> Discrimination is no longer the blocker. A wider hidden
+    layer (256 units) with dense, low-threshold input spikes reaches about 0.68 VEB precision at 90% recall, well
+    above the 0.50 target. An earlier plateau near 0.32 was a capacity limit, not a fundamental one.</p>
+    <p style="margin:0">The binding constraint is now energy. That same configuration costs about 108,000 SynOps per
+    beat, roughly 4.3x the 25,000 budget, because the levers that separate VEB from normal beats (a wide hidden layer
+    and dense spikes) are the same levers that raise SynOps. Current work maps the best discrimination achievable
+    <em>inside</em> the 25k budget, which decides whether all four targets can be met at once or whether one has to
+    give.</p>
   </div>
 
   <h2>Phase 1 baseline (committed)</h2>
@@ -179,7 +180,13 @@
   <h3>2. RR-interval timing features</h3>
   <p>Three patient-normalized timing ratios (pre-RR, post-RR, and their ratio, each divided by the record's median RR)
   are fed into the hidden layer. Premature beats have a short pre-RR, which is a cue that beat shape alone does not
-  carry. This roughly doubled VEB precision at 90% recall on DS2, from about 0.15 to about 0.32.</p>
+  carry. With a small hidden layer this roughly doubled VEB precision at 90% recall on DS2, from about 0.15 to about
+  0.32.</p>
+  <h3>3. Hidden-layer capacity (the ceiling breaker)</h3>
+  <p>Widening the hidden layer from 128 to 256 units, with denser input spikes, lifted VEB precision at 90% recall
+  from about 0.32 to 0.68 on DS2. This is the change that cleared the 0.50 target. The cost is SynOps: a wider layer
+  and denser spikes push the per-beat synaptic operations to about 108,000, well over the 25,000 budget. The current
+  frontier search asks how much of that discrimination survives when the configuration is forced back under budget.</p>
   <p class="muted">These are feasibility reads from a precision-recall reachability diagnostic, not final operating
   points. Final numbers use the val-locked protocol below and will replace the status board values when the runs
   finish.</p>
@@ -188,9 +195,14 @@
   <ul class="log">
     <li>
       <span class="date">2026-07-07</span>
-      <p class="what">Running the maximum-capacity ceiling test (T64, hidden 256, high resolution) and the
-      val-locked 5-seed evaluation with RR features. These confirm whether the ~0.32 VEB PPV ceiling is real and
-      produce the final honest DS2 numbers.</p>
+      <p class="what">Mapping the discrimination frontier under the 25k SynOps budget (varying hidden width, input
+      threshold, and derivative channels) to find the best VEB precision that fits the energy budget.</p>
+    </li>
+    <li>
+      <span class="date">2026-07-07</span>
+      <p class="what">Capacity broke the plateau: a hidden layer of 256 units with dense input reached about 0.68 VEB
+      precision at 90% recall, clearing the 0.50 target. But its cost is about 108k SynOps per beat, 4.3x the 25k
+      budget, so the binding constraint moved from discrimination to energy.</p>
     </li>
     <li>
       <span class="date">2026-07-06</span>
