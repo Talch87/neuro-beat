@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b><a href="https://talch87.github.io/NeuroBeat/">Live results dashboard</a></b> &middot;
+  <b><a href="https://talch87.github.io/neuro-beat/">Live results dashboard</a></b> &middot;
   current experiments and honest inter-patient numbers, updated as runs complete.
 </p>
 
@@ -130,7 +130,7 @@ Operating points are chosen only on a validation holdout carved out of DS1 and t
 before touching DS2 (see [`experiments/lock_snn_rr.py`](experiments/lock_snn_rr.py)), so the
 test set tunes nothing. The current best is still below the 0.50 VEB PPV target, which points
 to a discrimination ceiling for the two-layer network within the SynOps budget. Live status and
-the latest numbers are on the [results dashboard](https://talch87.github.io/NeuroBeat/).
+the latest numbers are on the [results dashboard](https://talch87.github.io/neuro-beat/).
 
 ## Roadmap
 
