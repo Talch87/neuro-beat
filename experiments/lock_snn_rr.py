@@ -26,7 +26,7 @@ import torch
 import torch.nn as nn
 
 from neurocardio.config import Config
-from neurocardio.data.dataset import build_split_rr
+from neurocardio.data.dataset import build_external_split_rr, build_split_rr
 from neurocardio.data.splits import DS1_RECORDS, DS2_RECORDS
 from neurocardio.encoding.beat import encode_beat
 from neurocardio.models.snn import SNNClassifier
@@ -47,6 +47,18 @@ def raw_group(cfg, records, tag):
     if fb.exists() and fl.exists() and fr.exists():
         return np.load(fb), np.load(fl), np.load(fr)
     beats, labels, rr = build_split_rr(cfg, records)
+    np.save(fb, beats)
+    np.save(fl, labels)
+    np.save(fr, rr)
+    return beats, labels, rr
+
+
+def raw_external(cfg, name, record_dir, lead):
+    """Cache raw (beats, labels, rr) for an external database, resampled to config fs."""
+    fb, fl, fr = (CACHE / f"ext_{name}_{s}.npy" for s in ("beats", "labels", "rr"))
+    if fb.exists() and fl.exists() and fr.exists():
+        return np.load(fb), np.load(fl), np.load(fr)
+    beats, labels, rr = build_external_split_rr(cfg, record_dir, lead_index=lead)
     np.save(fb, beats)
     np.save(fl, labels)
     np.save(fr, rr)
@@ -126,6 +138,20 @@ def logits_of(model, x, rr, batch):
     return torch.cat(out).numpy()
 
 
+def eval_split(model, x, rr, labels, bias, batch):
+    """Apply the frozen bias to a split and return VEB/SVEB sensitivity and PPV."""
+    pred = (logits_of(model, x, rr, batch) + bias).argmax(1)
+    vs, vp = _metrics(pred, labels, 2)
+    ss, sp = _metrics(pred, labels, 1)
+    return {
+        "VEB_sens": round(vs, 4),
+        "VEB_ppv": round(vp, 4),
+        "SVEB_sens": round(ss, 4),
+        "SVEB_ppv": round(sp, 4),
+        "n": int(len(labels)),
+    }
+
+
 def synops_per_beat(model, x_sample):
     """Hidden/output synaptic ops per beat, plus the one-shot RR->hidden projection."""
     model.eval()
@@ -148,7 +174,7 @@ def run_once(p, data, device, seed):
     orders = p["orders"]
     hidden, batch = p.get("hidden", 128), p.get("batch", 512)
     lr, epochs, scheme = p.get("lr", 0.004), p.get("epochs", 100), p.get("scheme", "sqrt")
-    trx, trr, trl_t, vax, var, val_l, tex, ter, tel = data
+    trx, trr, trl_t, vax, var, val_l, tex, ter, tel, external = data
     in_features = 2 * len(orders)
     weight = class_weights(trl_t.cpu().numpy(), scheme)
 
@@ -158,11 +184,10 @@ def run_once(p, data, device, seed):
     )
     val_logits = logits_of(model, vax, var, batch)
     bias, feasible_on_val = fit_bias(val_logits, val_l)
-    test_logits = logits_of(model, tex, ter, batch)
-    pred = (test_logits + bias).argmax(1)
-    vs, vp = _metrics(pred, tel, 2)
-    ss, sp = _metrics(pred, tel, 1)
+    ds2 = eval_split(model, tex, ter, tel, bias, batch)  # frozen operating point
     synops = synops_per_beat(model, tex[:2048])
+    # Same frozen bias applied to each external database (no re-tuning).
+    ext_res = {n: eval_split(model, ex, er, el, bias, batch) for n, (ex, er, el) in external.items()}
     res = {
         **{
             k: p.get(k)
@@ -171,36 +196,42 @@ def run_once(p, data, device, seed):
         "seed": seed,
         "bias": [round(float(x), 3) for x in bias],
         "feasible_on_val": bool(feasible_on_val),
-        "VEB_sens": round(vs, 4),
-        "VEB_ppv": round(vp, 4),
-        "SVEB_sens": round(ss, 4),
-        "SVEB_ppv": round(sp, 4),
+        "VEB_sens": ds2["VEB_sens"],
+        "VEB_ppv": ds2["VEB_ppv"],
+        "SVEB_sens": ds2["SVEB_sens"],
+        "SVEB_ppv": ds2["SVEB_ppv"],
         "synops": round(synops, 1),
+        "external": ext_res,
         "seconds": round(time.time() - t0, 1),
     }
     res["pass"] = (
-        vs >= GOAL["VEB_sens"]
-        and vp >= GOAL["VEB_ppv"]
-        and ss >= GOAL["SVEB_sens"]
+        ds2["VEB_sens"] >= GOAL["VEB_sens"]
+        and ds2["VEB_ppv"] >= GOAL["VEB_ppv"]
+        and ds2["SVEB_sens"] >= GOAL["SVEB_sens"]
         and synops <= GOAL["synops"]
     )
     return res, model.state_dict()
 
 
-def load_data(cfg, p, device):
+def load_data(cfg, p, device, external_specs=None):
     trb, trl, trr = raw_group(cfg, TRAIN_RECORDS, "trainsub")
     vab, val, var = raw_group(cfg, VAL_RECORDS, "val")
     teb, tel, ter = raw_group(cfg, DS2_RECORDS, "test")
     thr, T, orders = p["threshold"], p["n_timesteps"], p["orders"]
-    # standardize RR features on train stats only
+    # standardize RR features on train stats only (frozen preprocessing)
     mu, sd = trr.mean(0), trr.std(0) + 1e-6
     to_t = lambda a: torch.from_numpy(((a - mu) / sd).astype(np.float32)).to(device)  # noqa: E731
     trx = torch.from_numpy(enc(trb, thr, T, orders, "trainsub")).to(device)
     vax = torch.from_numpy(enc(vab, thr, T, orders, "val")).to(device)
     tex = torch.from_numpy(enc(teb, thr, T, orders, "test")).to(device)
     trl_t = torch.from_numpy(trl.astype(np.int64)).to(device)
+    external = {}
+    for name, record_dir, lead in external_specs or []:
+        eb, el, er = raw_external(cfg, name, record_dir, lead)
+        ex_x = torch.from_numpy(enc(eb, thr, T, orders, f"ext_{name}")).to(device)
+        external[name] = (ex_x, to_t(er), el.astype(np.int64))
     return (trx, to_t(trr), trl_t, vax, to_t(var), val.astype(np.int64),
-            tex, to_t(ter), tel.astype(np.int64))
+            tex, to_t(ter), tel.astype(np.int64), external)
 
 
 def main():
@@ -208,29 +239,49 @@ def main():
     ap.add_argument("--validate", required=True)
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--out", default="runs/lock_rr_results.json")
+    ap.add_argument(
+        "--external",
+        default="",
+        help="comma list of name:dir:lead, e.g. svdb:data/svdb:0,incart:data/incartdb:1",
+    )
     args = ap.parse_args()
     device = resolve_device("auto")
     cfg = Config()
-    print(f"device={device} train={len(TRAIN_RECORDS)} recs, val={VAL_RECORDS}", flush=True)
+
+    external_specs = []
+    for item in filter(None, args.external.split(",")):
+        name, record_dir, lead = item.rsplit(":", 2)
+        external_specs.append((name, record_dir, int(lead)))
+    ext_names = [n for n, _, _ in external_specs]
+    print(
+        f"device={device} train={len(TRAIN_RECORDS)} recs, val={VAL_RECORDS}, external={ext_names}",
+        flush=True,
+    )
 
     p = json.loads(args.validate)
-    data = load_data(cfg, p, device)
+    data = load_data(cfg, p, device, external_specs)
     rows = []
     for s in range(args.seeds):
         r, _ = run_once(p, data, device, s)
         rows.append(r)
         print(
-            f"seed {s}: VEB {r['VEB_sens']}/{r['VEB_ppv']} SVEB {r['SVEB_sens']} "
+            f"seed {s}: DS2 VEB {r['VEB_sens']}/{r['VEB_ppv']} SVEB {r['SVEB_sens']} "
             f"syn={r['synops']} pass={r['pass']} (valfeasible={r['feasible_on_val']}, {r['seconds']}s)",
             flush=True,
         )
+        for n, m in r.get("external", {}).items():
+            print(
+                f"    [{n}] VEB {m['VEB_sens']}/{m['VEB_ppv']} SVEB {m['SVEB_sens']}/{m['SVEB_ppv']} "
+                f"(n={m['n']})",
+                flush=True,
+            )
         Path(args.out).write_text(json.dumps(rows, indent=2))
     arr = {
         k: np.array([r[k] for r in rows])
         for k in ["VEB_sens", "VEB_ppv", "SVEB_sens", "synops"]
     }
     print(
-        "ALL PASS:",
+        "DS2  ALL PASS:",
         all(r["pass"] for r in rows),
         "| mean:",
         {k: round(float(v.mean()), 4) for k, v in arr.items()},
@@ -238,6 +289,18 @@ def main():
         {k: round(float(v.min()), 4) for k, v in arr.items()},
         flush=True,
     )
+    for n in ext_names:
+        exarr = {
+            k: np.array([r["external"][n][k] for r in rows])
+            for k in ["VEB_sens", "VEB_ppv", "SVEB_sens", "SVEB_ppv"]
+        }
+        print(
+            f"{n:4s} mean:",
+            {k: round(float(v.mean()), 4) for k, v in exarr.items()},
+            "| min:",
+            {k: round(float(v.min()), 4) for k, v in exarr.items()},
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
