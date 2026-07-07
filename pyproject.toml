@@ -19,6 +19,18 @@ dev = ["pytest>=8.0", "ruff>=0.5"]
 [project.scripts]
 neurocardio = "neurocardio.cli:main"
 
+# Pull torch from the CUDA (cu128) wheel index so the GPU is usable on this
+# machine (NVIDIA RTX 2060, driver CUDA 12.9). The default PyPI wheel is
+# CPU-only; without this uv reverts every `uv run` to torch==*+cpu. cu128's
+# newest is 2.11.0, which still satisfies torch>=2.2.
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
