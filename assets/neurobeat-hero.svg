@@ -22,8 +22,8 @@
   <!-- header -->
   <circle cx="52" cy="60" r="7" fill="#38e1c6" filter="url(#glow)"/>
   <text x="72" y="74" font-size="48" font-weight="800" fill="#eaf2ff" letter-spacing="0.5">NeuroBeat</text>
-  <text x="74" y="106" font-size="19" fill="#8ccbea">Reading the heart with the physics of a brain.</text>
-  <text x="74" y="131" font-size="13" fill="#5f7d99">A spiking neural network that spots arrhythmias on a sub-milliwatt wearable patch.</text>
+  <text x="74" y="106" font-size="19" fill="#8ccbea">Spiking neural network for ECG arrhythmia detection</text>
+  <text x="74" y="131" font-size="13" fill="#5f7d99">Low-power and event-driven, validated on the inter-patient MIT-BIH split</text>
   <line x1="72" y1="152" x2="1128" y2="152" stroke="#22314c" stroke-width="1"/>
 
   <!-- stage 1: ECG -->
