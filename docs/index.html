@@ -153,7 +153,9 @@
     <p style="margin:0">The real blocker is SVEB sensitivity: 0.13 on DS2, far below 0.45. Supraventricular beats look
     almost normal on a single lead, and DS1 has few of them. Notably, the same model reaches much higher SVEB
     sensitivity on other databases (0.62 on INCART), so the capacity exists; this looks like a training-data problem,
-    not a hard ceiling. Next step is augmenting training with supraventricular-rich data.</p>
+    not a hard ceiling. Augmenting training with svdb confirmed it: DS2 SVEB sensitivity roughly doubled to
+    0.24 (stable across seeds) with no energy cost, about halfway to the 0.45 target. Closing the rest is the
+    current work.</p>
   </div>
 
   <h3>Cross-database generalization (same model, frozen operating point)</h3>
@@ -237,6 +239,13 @@
 
   <h2>Experiment log</h2>
   <ul class="log">
+    <li>
+      <span class="date">2026-07-07</span>
+      <p class="what">Augmented training with svdb (supraventricular-rich, added its beats to the MIT-BIH DS1 training
+      set, ~20x more SVEB examples; DS2 stays the untouched test). DS2 SVEB sensitivity roughly doubled, 0.13 to 0.24
+      (stable over 3 seeds), with VEB and SynOps essentially unchanged; SVEB sensitivity on the clean INCART test
+      reached 0.72. Confirms SVEB was data-limited. Set up a RunPod parallel sweep to push it further.</p>
+    </li>
     <li>
       <span class="date">2026-07-07</span>
       <p class="what">Val-locked the budget-sized config across 5 seeds on DS2 and applied the same frozen operating
