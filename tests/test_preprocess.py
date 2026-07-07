@@ -1,6 +1,18 @@
 import numpy as np
 
-from neurocardio.data.preprocess import bandpass_filter, normalize
+from neurocardio.data.preprocess import bandpass_filter, normalize, resample_signal
+
+
+def test_resample_matches_target_rate_length():
+    x = np.sin(2 * np.pi * 5 * np.arange(128) / 128)  # 1 s at 128 Hz
+    y = resample_signal(x, native_fs=128, target_fs=360)
+    assert abs(len(y) - 360) <= 1  # ~1 s worth of samples at 360 Hz
+
+
+def test_resample_noop_when_rates_equal():
+    x = np.arange(10.0)
+    y = resample_signal(x, native_fs=360, target_fs=360)
+    assert np.array_equal(y, x)
 
 
 def test_bandpass_removes_dc_offset():

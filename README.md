@@ -5,7 +5,7 @@
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-3776ab">
   <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-2.11%20(CUDA)-ee4c2c">
-  <img alt="tests" src="https://img.shields.io/badge/tests-52%20passing-2ea44f">
+  <img alt="tests" src="https://img.shields.io/badge/tests-60%20passing-2ea44f">
   <img alt="split" src="https://img.shields.io/badge/split-inter--patient%20(DS1%E2%86%92DS2)-0aa">
   <img alt="status" src="https://img.shields.io/badge/phase%201-proof%20of%20concept-f5a623">
 </p>
@@ -158,7 +158,7 @@ for neuromorphic hardware.
 ```
 src/neurocardio/
   data/       load ECG, bandpass/normalize, R-peak beat windows, AAMI labels, DS1/DS2 split,
-              RR-interval timing features
+              RR-interval timing features, external-database loading (resample to 360 Hz)
   encoding/   delta.py (level-crossing spike encoder), beat.py (low-timestep count-pooled
               encoder with derivative channels), rate.py (rate-coding baseline)
   models/     snn.py (LIF spiking classifier, optional RR input path), baselines.py (CNN1D, LSTM)
@@ -166,7 +166,7 @@ src/neurocardio/
   eval/       confusion matrix, AAMI sensitivity/PPV, evaluate over a DataLoader
   deploy/     energy.py (SynOps + spike-count energy proxy)
   stream/     online R-peak detector and StreamDetector (timestamped anomaly logging)
-  cli.py      download, train, evaluate
+  cli.py      download (mitdb/svdb/incartdb), train, evaluate, crossdb (external-DB test)
 experiments/  sweep_snn.py, search_snn.py (GPU sweeps), lock_snn.py / lock_snn_rr.py
               (val-locked honest evaluation, no test-set tuning)
 docs/         index.html (results dashboard, served via GitHub Pages)
@@ -192,6 +192,22 @@ uv run neurocardio train --config configs/lstm.yaml --out runs/lstm.pt
 
 `configs/{snn,cnn,lstm}.yaml` set `seed: 1337` and `device: auto` (GPU if available,
 otherwise CPU). The SNN uses delta-encoded spikes; the CNN and LSTM use raw beats.
+
+### External validation (cross-database)
+
+Training on MIT-BIH and testing on a different database is a stricter generalization test
+than DS1 to DS2 alone. The `crossdb` command downloads and resamples other PhysioNet
+databases to 360 Hz and runs the same beat/AAMI pipeline:
+
+```bash
+uv run neurocardio download --db svdb        # MIT-BIH Supraventricular (128 Hz, SVEB-rich)
+uv run neurocardio download --db incartdb    # St. Petersburg INCART (257 Hz, VEB-rich)
+uv run neurocardio crossdb --config configs/snn.yaml --weights runs/snn.pt --data-dir data/svdb
+```
+
+Report each database separately; do not merge external numbers into the MIT-BIH DS2 figure.
+Lead ordering differs across databases, so set `--lead` deliberately (for example lead II is
+index 1 on INCART, index 0 on MIT-BIH).
 
 Note on compute: the SNN forward pass is a 256-step loop, so it is limited by per-step
 latency rather than throughput. A GPU improves throughput but not the number of gradient

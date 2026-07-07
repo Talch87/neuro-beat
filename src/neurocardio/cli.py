@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from neurocardio.config import load_config
-from neurocardio.data.dataset import ECGBeatDataset, build_split
+from neurocardio.data.dataset import ECGBeatDataset, build_external_split, build_split
 from neurocardio.data.segment import AAMI_CLASSES
 from neurocardio.data.splits import get_split
 from neurocardio.deploy.energy import spike_stats
@@ -36,8 +36,7 @@ def _make_model(cfg):
     raise ValueError(f"unknown model kind: {cfg.model.kind}")
 
 
-def _make_dataset(cfg, record_ids):
-    beats, labels = build_split(cfg, record_ids)
+def _dataset_from_beats(cfg, beats, labels):
     if cfg.model.kind == "snn" and cfg.encoder.kind == "delta":
         thr = cfg.encoder.delta_threshold
 
@@ -48,10 +47,29 @@ def _make_dataset(cfg, record_ids):
     return ECGBeatDataset(beats, labels)
 
 
-def cmd_download(args):
-    from neurocardio.data.download import download_mitdb
+def _make_dataset(cfg, record_ids):
+    beats, labels = build_split(cfg, record_ids)
+    return _dataset_from_beats(cfg, beats, labels)
 
-    download_mitdb(args.dest)
+
+def cmd_download(args):
+    from neurocardio.data.download import download_db
+
+    out = download_db(args.db, args.dest)
+    print(f"downloaded {args.db} -> {out}")
+
+
+def cmd_crossdb(args):
+    """Evaluate trained weights on an external WFDB database (resampled to config fs)."""
+    cfg = load_config(args.config)
+    device = resolve_device(cfg.train.device)
+    beats, labels = build_external_split(cfg, args.data_dir, lead_index=args.lead)
+    loader = DataLoader(_dataset_from_beats(cfg, beats, labels), batch_size=cfg.train.batch_size)
+    model = _make_model(cfg)
+    model.load_state_dict(torch.load(args.weights, map_location=device))
+    result = evaluate(model, loader, classes=AAMI_CLASSES, device=device)
+    print(f"External DB {args.data_dir}: {len(labels)} beats, lead={args.lead or cfg.data.lead_index}")
+    print(result["metrics"])
 
 
 def cmd_train(args):
@@ -101,8 +119,16 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_dl = sub.add_parser("download")
-    p_dl.add_argument("--dest", default="data/mitdb")
+    p_dl.add_argument("--db", default="mitdb", help="mitdb | svdb | incartdb | ptbdb")
+    p_dl.add_argument("--dest", default=None, help="default data/<db>")
     p_dl.set_defaults(func=cmd_download)
+
+    p_cx = sub.add_parser("crossdb", help="evaluate weights on an external WFDB database")
+    p_cx.add_argument("--config", default="configs/default.yaml")
+    p_cx.add_argument("--weights", required=True)
+    p_cx.add_argument("--data-dir", required=True, help="downloaded external DB directory")
+    p_cx.add_argument("--lead", type=int, default=None, help="lead index (default: config)")
+    p_cx.set_defaults(func=cmd_crossdb)
 
     p_tr = sub.add_parser("train")
     p_tr.add_argument("--config", default="configs/default.yaml")
