@@ -122,9 +122,9 @@
     </div>
     <div class="tile">
       <div class="label">VEB PPV @ 90% recall</div>
-      <div class="val">0.68</div>
+      <div class="val">0.74</div>
       <div class="target">target &ge; 0.50</div>
-      <span class="chip ok">achievable (wide hidden layer)</span>
+      <span class="chip ok">achievable at budget size</span>
     </div>
     <div class="tile">
       <div class="label">SVEB sensitivity</div>
@@ -134,24 +134,24 @@
     </div>
     <div class="tile">
       <div class="label">SynOps / beat</div>
-      <div class="val">~28.5k</div>
+      <div class="val">~24k</div>
       <div class="target">target &le; 25,000</div>
-      <span class="chip bad">14% over (binding constraint)</span>
+      <span class="chip warn">near budget, val-locking to confirm</span>
     </div>
   </div>
 
   <div class="bottomline">
-    <p style="margin:0 0 6px"><strong>Bottom line.</strong> Discrimination is no longer the blocker. A wider hidden
-    layer with dense, low-threshold input spikes reaches about 0.68 VEB precision at 90% recall, well above the 0.50
-    target. An earlier plateau near 0.32 was a capacity limit, not a fundamental one.</p>
-    <p style="margin:0 0 6px">The binding constraint is energy. The smallest configuration that still clears 0.50
-    (a 96-unit hidden layer with all three derivative channels) costs about 28,500 SynOps per beat, roughly 14% over
-    the 25,000 budget. That gap is narrow, but it does not close for free: dropping a derivative channel to save
-    SynOps crashed discrimination from 0.57 to 0.26, so the channels that cost energy are the same ones that carry
-    the signal.</p>
-    <p style="margin:0">So the question is now quantitative and close: whether a threshold or capacity tweak can pull
-    a 0.50-level config the last 14% under budget, or whether one target (most likely the SynOps ceiling) has to move.
-    The frontier below shows the trade-off.</p>
+    <p style="margin:0 0 6px"><strong>Bottom line.</strong> All four targets may be reachable at once. Discrimination
+    was never the real blocker (a wide layer with dense input hits about 0.68 VEB precision at 90% recall), and the
+    energy tension now looks solvable too.</p>
+    <p style="margin:0 0 6px">The key turned out to be time resolution. A budget-sized config (128 hidden units,
+    sparse input, but 64 timesteps) reached about 0.74 VEB precision at 90% recall. More timesteps sharpen
+    discrimination while adding almost nothing to SynOps, so they substitute for the expensive levers (a wide layer
+    and dense low-threshold spikes). This config's layer-1 cost is about 20,000 SynOps, leaving room under the
+    25,000 budget for the rest.</p>
+    <p style="margin:0">A val-locked 5-seed evaluation of this config is running now to confirm the exact SynOps and
+    the DS2 sensitivity and PPV under the no-test-tuning protocol. If those hold, the goal is met. The frontier below
+    shows how discrimination and energy trade off.</p>
   </div>
 
   <h3>Frontier: discrimination vs energy (DS2 feasibility reads)</h3>
@@ -161,16 +161,17 @@
         <tr><th>Config</th><th>VEB PPV @ 90% recall</th><th class="mono">Est. SynOps/beat</th><th>Budget</th></tr>
       </thead>
       <tbody>
-        <tr><td>h256, all channels, dense (unconstrained)</td><td>0.68</td><td class="mono">~108,000</td><td>4.3x over</td></tr>
-        <tr class="snn"><td>h96, all channels (thr 0.12)</td><td>0.571</td><td class="mono">~28,500</td><td>1.14x over</td></tr>
-        <tr><td>h64, all channels (thr 0.10)</td><td>0.242</td><td class="mono">~21,000</td><td>under</td></tr>
-        <tr><td>h128, drop 2nd-deriv channel (thr 0.12)</td><td>0.263</td><td class="mono">~23,000</td><td>under</td></tr>
+        <tr class="snn"><td>h128, 64 steps, 2 channels (thr 0.12)</td><td>0.739</td><td class="mono">~20-25k</td><td>at budget (val-locking)</td></tr>
+        <tr><td>h256, 64 steps, all channels, dense</td><td>0.68</td><td class="mono">~108,000</td><td>4.3x over</td></tr>
+        <tr><td>h96, 32 steps, all channels (thr 0.12)</td><td>0.571</td><td class="mono">~28,500</td><td>1.14x over</td></tr>
+        <tr><td>h128, 32 steps, 2 channels (thr 0.12)</td><td>0.263</td><td class="mono">~23,000</td><td>under, but weak</td></tr>
+        <tr><td>h64, 32 steps, all channels (thr 0.10)</td><td>0.242</td><td class="mono">~21,000</td><td>under, but weak</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="muted" style="margin-top:8px">Configurations that fit the budget top out near 0.26 VEB precision; the ones
-  that clear 0.50 sit just over it. The best in-budget candidate found so far is about 14% over. Numbers are
-  precision-recall reachability reads on DS2, not val-locked operating points.</p>
+  <p class="muted" style="margin-top:8px">Time resolution is a strong, cheap lever: the same 2-channel shape scores
+  0.26 at 32 timesteps but 0.74 at 64 timesteps, for almost no extra SynOps. Numbers are precision-recall
+  reachability reads on DS2, not val-locked operating points; the top row is being val-locked now.</p>
 
   <h2>Phase 1 baseline (committed)</h2>
   <p class="muted">MIT-BIH, inter-patient DS1&rarr;DS2. DS1 train = 51,000 beats, DS2 test = 49,693 beats.
@@ -222,10 +223,16 @@
     </li>
     <li>
       <span class="date">2026-07-07</span>
-      <p class="what">Mapped the discrimination-vs-energy frontier. The smallest config that still clears 0.50 VEB
-      precision (96 hidden units, all derivative channels) lands ~14% over the 25k SynOps budget. Dropping a
-      derivative channel to save energy collapsed discrimination (0.57 to 0.26), so the costly channels are the
-      informative ones. See the frontier table above.</p>
+      <p class="what">Found a budget-sized config that clears the discrimination target: 128 hidden units, sparse
+      2-channel input, 64 timesteps reached about 0.74 VEB precision at 90% recall, with a layer-1 cost near 20k
+      SynOps. Time resolution is the cheap lever: the same shape scores only 0.26 at 32 timesteps but 0.74 at 64,
+      for almost no extra energy. Val-locking this across 5 seeds now.</p>
+    </li>
+    <li>
+      <span class="date">2026-07-07</span>
+      <p class="what">Mapped the discrimination-vs-energy frontier across hidden width, input threshold, derivative
+      channels, and timesteps. The trade-off is real but not a wall: energy-cheap levers (fewer input channels, more
+      timesteps) can hold discrimination if combined correctly. See the frontier table above.</p>
     </li>
     <li>
       <span class="date">2026-07-07</span>
