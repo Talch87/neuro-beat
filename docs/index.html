@@ -97,6 +97,7 @@
     </div>
     <nav class="nav">
       <a href="https://github.com/Talch87/neuro-beat">Repository</a>
+      <a href="https://github.com/Talch87/neuro-beat/blob/main/paper/neurobeat.md">Preprint</a>
       <a href="https://github.com/Talch87/neuro-beat#readme">README</a>
       <a href="https://physionet.org/content/mitdb/">MIT-BIH data</a>
     </nav>
@@ -104,12 +105,17 @@
 
   <section>
     <div class="card objective">
-      <p style="margin:0 0 6px"><strong>Current objective</strong></p>
-      <p style="margin:0">Ship <strong>NeuroBeat-VEB v1</strong>: a spiking ventricular-ectopic-beat detector meeting
+      <p style="margin:0 0 6px"><strong>Current status</strong></p>
+      <p style="margin:0 0 8px"><strong>NeuroBeat-VEB v1</strong> is shipped: a spiking ventricular-ectopic-beat detector meeting
       <strong>VEB sensitivity &ge; 0.90</strong>, <strong>VEB PPV &ge; 0.60</strong>, and
       <strong>&le; 25,000 SynOps per beat</strong> on the inter-patient MIT-BIH DS1&rarr;DS2 split, generalizing
-      across databases. Supraventricular (SVEB) detection is a separate, data-limited problem, now pursued by a
-      dedicated specialist rather than by compromising the VEB operating point.</p>
+      across databases. Supraventricular (SVEB) detection is a separate, single-lead-limited problem and is reported
+      as an honest negative result.</p>
+      <p style="margin:0">A <a href="https://github.com/Talch87/neuro-beat/blob/main/paper/neurobeat.md">validation-locked,
+      energy-accounted preprint</a> is drafted. Its central claim is the <em>evaluation discipline</em>, not accuracy
+      leadership: under an identical protocol, stronger non-spiking baselines match or beat the cascade on accuracy
+      (see below), so the spiking model's case rests on per-beat operation count and neuromorphic suitability, pending
+      measured hardware energy.</p>
     </div>
   </section>
 
@@ -149,10 +155,10 @@
     every beat, gating a 3-seed ensemble confirmer that runs only on the ~27% of beats it flags &mdash; meets all three
     targets on DS2 simultaneously: <strong>sensitivity 0.923, PPV 0.616, 23,385 SynOps/beat</strong>.</p>
     <p style="margin:0 0 6px">A single model cannot do this: it faces a real sensitivity&ndash;precision tradeoff
-    (about 0.89/0.49 <em>or</em> 0.86/0.68, never both), which turned out to be calibration variance, not a capacity
-    limit &mdash; a seed ensemble reaches the target corner, and the cascade delivers that ensemble accuracy within the
-    energy budget by running it only on flagged candidates. VEB sensitivity holds &ge; 0.90 across three databases
-    (DS2, SVDB, INCART) under one frozen operating point.</p>
+    (about 0.89/0.49 <em>or</em> 0.86/0.68, never both), consistent with calibration and seed variance rather than a
+    capacity limit &mdash; a seed ensemble reaches the target corner, and the cascade delivers that ensemble accuracy
+    within the energy budget by running it only on flagged candidates. VEB sensitivity holds &ge; 0.90 across three
+    databases (DS2, SVDB, INCART) under one frozen operating point.</p>
     <p style="margin:0"><strong>Supraventricular (SVEB) detection</strong> is a separate, single-lead-limited problem.
     A dedicated SVEB specialist (svdb + INCART augmentation, SVEB-only operating point) does not yield a usable detector:
     DS2 SVEB precision never exceeds ~0.15, high sensitivity comes only from flagging almost everything (and cannibalizes
@@ -198,27 +204,58 @@
   full ensemble hits both but at ~5&times; the energy; the gated-ensemble cascade recovers ensemble accuracy within the
   25k budget by running the ensemble only on flagged candidates.</p>
 
-  <h3>Frontier: discrimination vs energy (DS2 feasibility reads)</h3>
+  <h3>Stronger baselines under the identical protocol &mdash; the honest ranking</h3>
+  <p class="muted">Same DS1 train, same val-locked operating point, same frozen DS2 test. &ldquo;Cascade &minus; model&rdquo;
+  is a paired record-level bootstrap difference in VEB F1; a negative value means the baseline is <em>more</em> accurate
+  than the spiking cascade.</p>
   <div class="card scroll" style="padding:6px 8px">
     <table>
       <thead>
-        <tr><th>Config</th><th>VEB PPV @ 90% recall</th><th class="mono">Est. SynOps/beat</th><th>Budget</th></tr>
+        <tr><th>Model</th><th>VEB sens</th><th>VEB PPV</th><th>F1</th><th class="mono">Ops/beat</th><th>Cascade &minus; model F1</th></tr>
       </thead>
       <tbody>
-        <tr class="snn"><td>h128, 64 steps, 2 channels (thr 0.12)</td><td>0.739</td><td class="mono">14,273</td><td>val-locked, under</td></tr>
-        <tr><td>h256, 64 steps, all channels, dense</td><td>0.68</td><td class="mono">~108,000</td><td>4.3x over</td></tr>
-        <tr><td>h96, 32 steps, all channels (thr 0.12)</td><td>0.571</td><td class="mono">~28,500</td><td>1.14x over</td></tr>
-        <tr><td>h128, 32 steps, 2 channels (thr 0.12)</td><td>0.263</td><td class="mono">~23,000</td><td>under, but weak</td></tr>
-        <tr><td>h64, 32 steps, all channels (thr 0.10)</td><td>0.242</td><td class="mono">~21,000</td><td>under, but weak</td></tr>
+        <tr class="snn"><td>Gated cascade (SNN)</td><td>0.923</td><td>0.616</td><td>0.739</td><td class="mono">23.4k SynOps</td><td>&mdash;</td></tr>
+        <tr><td>TCN</td><td>0.939</td><td>0.729</td><td>0.821</td><td class="mono">~1.02M MACs</td><td>&minus;0.088</td></tr>
+        <tr><td>ResNet-lite</td><td>0.910</td><td>0.761</td><td>0.829</td><td class="mono">~539k MACs</td><td>&minus;0.089</td></tr>
+        <tr><td>Gradient-boosted trees</td><td>0.974</td><td>0.678</td><td>0.800</td><td class="mono">~200 trees</td><td>&minus;0.060</td></tr>
+        <tr><td>Linear SVM</td><td>0.981</td><td>0.259</td><td>0.410</td><td class="mono">259 MACs</td><td>+0.314</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="muted" style="margin-top:8px">Time resolution is a strong, cheap lever: the same 2-channel shape scores
-  0.26 at 32 timesteps but 0.74 at 64 timesteps, for almost no extra SynOps. The top row is now val-locked at 14,273
-  SynOps per beat, well under budget. Other rows are precision-recall reachability reads on DS2.</p>
+  <p class="muted" style="margin-top:8px">The spiking cascade is <strong>not</strong> the most accurate DS2 VEB detector:
+  a compact TCN, a ResNet-lite CNN, and gradient-boosted trees all beat it on F1. It clearly beats the higher-sensitivity,
+  lower-precision CNN and linear SVM. What separates it is operation count (~23k SynOps vs 0.5&ndash;1M MACs) and mapping
+  onto neuromorphic hardware &mdash; an operation-count advantage under a proxy, pending measured energy.</p>
+
+  <h3>Robustness &amp; end-to-end reality checks</h3>
+  <div class="grid">
+    <div class="tile">
+      <div class="label">Patient-level CI (DS2)</div>
+      <div class="val" style="font-size:1.05rem">sens 0.85&ndash;0.98<br>PPV 0.36&ndash;0.81</div>
+      <div class="target">bootstrap over 22 patients</div>
+      <span class="chip warn">wide &mdash; the honest interval</span>
+    </div>
+    <div class="tile">
+      <div class="label">End-to-end (detected R-peaks)</div>
+      <div class="val" style="font-size:1.05rem">0.884 / 0.593</div>
+      <div class="target">XQRS detector, vs 0.923 / 0.616</div>
+      <span class="chip warn">below 0.90 target</span>
+    </div>
+    <div class="tile">
+      <div class="label">Training-size sweep</div>
+      <div class="val" style="font-size:1.05rem">flat</div>
+      <div class="target">10&rarr;100% of DS1 (2-seed diagnostic)</div>
+      <span class="chip">more data narrows variance, not mean</span>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:8px">The beat-pooled headline hides real per-patient spread: a patient-level bootstrap
+  gives a wide interval (one record, 213, is genuinely weak at 0.62 sensitivity). Swapping annotated R-peaks for a standard
+  detector drops end-to-end VEB to 0.884 / 0.593 &mdash; modest, but below the 0.90 target; a weak detector is catastrophic.
+  A two-seed learning curve suggests the single-stage result is limited by calibration, architecture, encoding, or
+  single-lead information rather than DS1 size (diagnostic, not conclusive).</p>
 
   <h2>Phase 1 baseline (committed)</h2>
-  <p class="muted">MIT-BIH, inter-patient DS1&rarr;DS2. DS1 train = 51,000 beats, DS2 test = 49,693 beats.
+  <p class="muted">MIT-BIH, inter-patient DS1&rarr;DS2. DS1 train = 44,573 beats, DS2 test = 49,693 beats.
   Inverse-frequency class weighting. Metrics per AAMI EC57.</p>
   <div class="card scroll" style="padding:6px 8px">
     <table>
@@ -237,28 +274,33 @@
   objective targets. The CNN uses roughly 355k multiply-accumulates per beat, which is why it separates VEB from normal
   beats better and why matching it inside a 25k SynOps budget is hard.</p>
 
-  <h2>Active investigation</h2>
-  <p>Two changes from recent literature are being tested to raise VEB discrimination while lowering compute:</p>
-  <h3>1. Low-timestep count-pooled encoder</h3>
-  <p>The delta-encoded spikes are pooled into a small number of time bins (for example 32 instead of 256). This cuts
-  the SNN's sequential loop length, which both speeds up training by about 16x and lowers SynOps per beat, helping the
-  25k budget.</p>
-  <h3>2. RR-interval timing features</h3>
-  <p>Three patient-normalized timing ratios (pre-RR, post-RR, and their ratio, each divided by the record's median RR)
-  are fed into the hidden layer. Premature beats have a short pre-RR, which is a cue that beat shape alone does not
-  carry. With a small hidden layer this roughly doubled VEB precision at 90% recall on DS2, from about 0.15 to about
-  0.32.</p>
-  <h3>3. Hidden-layer capacity (the ceiling breaker)</h3>
-  <p>Widening the hidden layer from 128 to 256 units, with denser input spikes, lifted VEB precision at 90% recall
-  from about 0.32 to 0.68 on DS2. This is the change that cleared the 0.50 target. The cost is SynOps: a wider layer
-  and denser spikes push the per-beat synaptic operations to about 108,000, well over the 25,000 budget. The current
-  frontier search asks how much of that discrimination survives when the configuration is forced back under budget.</p>
-  <p class="muted">These are feasibility reads from a precision-recall reachability diagnostic, not final operating
-  points. Final numbers use the val-locked protocol below and will replace the status board values when the runs
-  finish.</p>
+  <h2>What held up under scrutiny (preprint hardening)</h2>
+  <p>The <a href="https://github.com/Talch87/neuro-beat/blob/main/paper/neurobeat.md">preprint</a> was hardened with
+  analyses computed from the frozen model (all regenerable, none invented):</p>
+  <h3>Per-record robustness &amp; error composition</h3>
+  <p>Per-record DS2 results show the beat-pooled headline is carried by two large records; one record (213) is genuinely
+  weak (0.62 sensitivity). VEB false positives are 87% normal beats and 12% supraventricular; on the SVEB-dense SVDB, 39%
+  of false positives are true SVEB beats, which is exactly why SVDB PPV drops.</p>
+  <h3>Stronger baselines &amp; honest ranking</h3>
+  <p>Under the identical protocol, a TCN, a ResNet-lite CNN, and gradient-boosted trees all beat the spiking cascade on
+  DS2 F1 (see the table above). The paper states this plainly: the contribution is evaluation discipline and energy
+  accounting, not accuracy leadership.</p>
+  <h3>End-to-end &amp; learning curve</h3>
+  <p>With a standard R-peak detector instead of annotations, end-to-end VEB is 0.884 / 0.593 (below the 0.90 target but a
+  modest drop); a weak detector collapses it. A two-seed training-size sweep is flat, suggesting the limit is not DS1
+  size &mdash; treated as diagnostic, not conclusive.</p>
 
   <h2>Experiment log</h2>
   <ul class="log">
+    <li>
+      <span class="date">2026-07-08</span>
+      <p class="what"><strong>Preprint hardened for release.</strong> Added, with real computed numbers: per-record
+      robustness and full AAMI confusion (error composition); paired record-level bootstrap; stronger embedded baselines
+      (TCN, ResNet-lite, gradient-boosted trees, SVM) with an <strong>honest ranking &mdash; the spiking cascade is not the
+      most accurate detector</strong>; a detected-R-peak end-to-end ablation (XQRS 0.884 / 0.593); an int8-quantized CNN
+      baseline; and a training-set-size learning curve. Fixed a Table&nbsp;1 DS1-train class-count error and corrected an
+      F/Q suppression claim. The paper's thesis is validation-locked, energy-accounted evaluation, not headline accuracy.</p>
+    </li>
     <li>
       <span class="date">2026-07-08</span>
       <p class="what"><strong>SVEB specialist: honest negative result.</strong> Trained a dedicated SVEB-first model
@@ -266,8 +308,9 @@
       single-lead DS2: precision never exceeds ~0.15, the seeds that show high sensitivity do so only by flagging almost
       everything as SVEB (precision ~0.05) and collapse the ventricular class, and the result is wildly seed-unstable
       (SVEB sensitivity 0.16&ndash;0.94). The naive 5-seed mean (0.49) is a mirage of over-flagging. Since the same
-      architecture reaches 0.62 on 12-lead INCART, the limit is lead count, not capacity. Multi-lead input is the
-      documented next lever; single-lead SVEB is treated as a genuine negative result.</p>
+      architecture reaches 0.62 on 12-lead INCART (in-domain, as INCART is in its training set), the limit is lead count,
+      not capacity. Multi-lead input is the documented next lever; single-lead SVEB is treated as a genuine negative
+      result.</p>
     </li>
     <li>
       <span class="date">2026-07-07</span>
@@ -357,7 +400,7 @@
   </div>
 
   <footer>
-    <p>Last updated: July 7, 2026. Phase 1 software proof of concept. Built on public
+    <p>Last updated: July 8, 2026. Research proof of concept, not a clinical or cleared device. Built on public
     <a href="https://physionet.org/content/mitdb/">PhysioNet MIT-BIH</a> data. Metrics per AAMI EC57.
     This page is generated from the repository and updated as experiments complete.</p>
   </footer>
