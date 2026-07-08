@@ -6,11 +6,6 @@ date: "July 2026"
 
 *Contact:* github.com/Talch87/neuro-beat &nbsp;·&nbsp; *Code, weights, live dashboard:* talch87.github.io/neuro-beat
 
-*Status: preprint draft. All quantitative results are from locked runs (operating
-points fit only on a DS1 validation holdout; DS2 and external databases frozen).
-Reference author lists verified against source pages, except the Neurocomputing
-entry (secondary search, to confirm).*
-
 ---
 
 ## Abstract
@@ -31,8 +26,8 @@ cross-database testing on two external databases.
 
 **Result.** A single operating point trades sensitivity against precision (VEB
 sensitivity 0.894 at positive predictive value (PPV) 0.490, or 0.857 at 0.679,
-not both), which we attribute to calibration variance under a small validation
-holdout rather than to model capacity. A two-stage gated-ensemble cascade, in
+not both), a pattern consistent with calibration variance under a small validation
+holdout rather than with a capacity limit. A two-stage gated-ensemble cascade, in
 which a sparse high-recall screener (5,987 SynOps/beat) gates a three-seed
 ensemble confirmer that runs only on the roughly 27% of beats it flags, reaches
 VEB sensitivity 0.923 at PPV 0.616 on DS2 within 23,385 SynOps/beat, and holds VEB
@@ -135,7 +130,7 @@ resource-constrained deployment through quantized and compact convolutional or
 temporal-convolutional models, pruning, and microcontroller implementations. These
 approaches report MACs, memory footprint, or measured microcontroller energy.
 They are the natural non-spiking comparison point for efficiency claims; we include
-convolutional and recurrent baselines here (Section 7.5) and note quantized CNN and
+convolutional and recurrent baselines here (Section 7.8) and note quantized CNN and
 temporal-convolutional baselines as needed additional comparisons (Section 9).
 
 **(c) Spiking and neuromorphic ECG.** SNN-ECG methods report competitive MIT-BIH
@@ -208,8 +203,9 @@ minorities are the quantities that matter for the class-weighted objective.)*
 
 ## 4. Figures
 
-Figures 1 to 5 are rendered from the locked results and included below (sources in
-`paper/figures/`).
+Figures 1 to 6 are rendered from the locked results and included below (sources in
+`paper/figures/`). All figures are external image files; none is embedded as
+inline base64 data.
 
 ![Figure 1](figures/fig1_protocol.png)
 
@@ -242,15 +238,27 @@ magnitude higher in operation count.*
 
 **Figure 4 (cross-database transfer).** VEB sensitivity and PPV for the frozen gated
 cascade on DS2, SVDB, and INCART, with the 0.90 and 0.60 target lines. *Message:
-sensitivity transfers (>= 0.90 on all three databases under one frozen operating
-point); PPV varies with class prevalence.*
+VEB sensitivity stays at or above 0.90 on all three databases under one frozen
+operating point, while PPV varies with class prevalence.*
 
 ![Figure 5](figures/fig5_sveb.png)
 
 **Figure 5 (SVEB negative result).** DS2 SVEB sensitivity versus PPV per seed for the
-SVEB specialist (single lead), contrasted with the same architecture's SVEB
-detection on 12-lead INCART. *Message: single-lead SVEB is unstable and
-low-precision; the same model separates SVEB far better with more lead information.*
+SVEB specialist (single lead), contrasted with the same specialist's SVEB detection
+on 12-lead INCART. INCART supraventricular beats were part of this specialist's
+augmented training set, so the INCART point is an in-domain, diagnostic reference,
+not external validation (Section 7.9). *Message: single-lead SVEB is unstable and
+low-precision; the same specialist separates SVEB more readily when more lead
+information is available in-domain.*
+
+![Figure 6](figures/fig6_perrecord.png)
+
+**Figure 6 (per-record robustness).** Per-record VEB sensitivity (circles) and PPV
+(squares) on DS2 for the frozen gated cascade, versus the record's VEB count (log
+scale). Dashed lines mark the 0.90 sensitivity and 0.60 PPV targets. Only records
+with at least one VEB beat are shown. *Message: sensitivity is high and stable on
+the high-VEB records except record 213; PPV is dispersed and falls well below target
+on several low-VEB records.*
 
 ---
 
@@ -317,6 +325,22 @@ membrane-state updates, on-chip memory movement, the encoding and sensor front
 end, and any host overhead. It is therefore a compute proxy and not a measured
 energy figure (Sections 8 and 9). The budget throughout is 25,000 SynOps/beat.
 
+**On the choice of 25,000 SynOps/beat.** This budget is a fixed design constraint we
+set before the final locked evaluation, not a measured device figure and not a
+clinically validated energy threshold. It is an exploratory, deployment-inspired
+target chosen to make the design problem non-trivial in both directions: it sits
+below the cost of running the full five-seed ensemble on every beat (about 71,000
+SynOps/beat, Section 7.7), so "ensemble everything" is deliberately out of budget
+and accuracy must instead be earned through sparsity and gating; and it sits
+comfortably above the cheapest useful single-stage model (about 14,000
+SynOps/beat), so the budget is not satisfied by default. Because every configuration
+in the paper is held to the same number, the budget functions as a common yardstick
+for comparing designs rather than as a guarantee about any particular chip. As a
+rough sense of scale only, at an order of 10^5 beats per day a 25,000-SynOp/beat
+detector performs on the order of 10^9 spike-triggered accumulates per day; we give
+this for intuition and do not translate it into battery life, which depends on the
+hardware factors enumerated in Section 9.
+
 ### 5.5 Two-stage gated-ensemble cascade
 
 A single model cannot reach both target thresholds at one operating point
@@ -351,6 +375,30 @@ the seed is chosen by validation VEB F1 among seeds that satisfy the sens-first
 validation constraint, never by any DS2 or external number. For the cascade, the
 confirmer uses seeds 0 to 2; we report robustness to this choice in Section 7.3.
 
+### 5.7 Hyperparameter selection and locking
+
+For transparency about what was tuned and what was not: the encoding and
+architecture settings were fixed during exploratory development on DS1 and its
+validation holdout, guided by validation VEB F1 and SynOps, before the final locked
+evaluation. This applies to the single-stage settings (T = 64, H = 128, encoding
+threshold 0.12, orders [0, 1]), the screener settings (T = 32, H = 64, threshold
+0.18), the three-seed confirmer, the 25,000-SynOps budget, and the choice of DS1
+records 201, 207, and 223 as the validation holdout. This exploration was informal
+rather than an exhaustive grid search, and we do not claim these values are optimal;
+several of them (in particular H, the number of confirmer seeds, and the exact
+encoding thresholds) were set to reasonable values and not swept to convergence. A
+systematic sweep could plausibly improve the operating points and is left as future
+work.
+
+What we do guarantee is the locking discipline. Once these settings were fixed, all
+operating points (single-stage and both cascade stages) were fit only on the DS1
+validation holdout, and every number reported on DS2, SVDB, and INCART was produced
+by evaluating the resulting frozen artifacts against test sets that played no role
+in any selection (Section 6). The distinction we ask the reader to keep is between
+the architecture and hyperparameters, which were set during development and may be
+improvable, and the operating point and test evaluation, which are strictly locked
+and are the basis for every headline claim.
+
 ---
 
 ## 6. Evaluation protocol (no-leakage statement)
@@ -369,9 +417,11 @@ To make the leakage-control claim unambiguous:
 4. All reported final numbers were produced by evaluating locked artifacts; no
    number was revised after seeing test performance.
 
-The one deliberate exception is the SVEB specialist (Section 7.6), which by design
+The one deliberate exception is the SVEB specialist (Section 7.9), which by design
 adds SVDB and INCART beats to training as an augmentation study; its DS2 test set
-remains untouched, and we flag its non-standard training explicitly.
+remains untouched, and we flag its non-standard training explicitly. Because that
+specialist trains on SVDB and INCART, its SVDB and INCART numbers are in-domain and
+diagnostic, not external validation, and we label them as such (Section 7.9).
 
 ---
 
@@ -384,7 +434,11 @@ DS2 beats) for the headline cascade. DS2 contains 3,220 VEB beats out of 49,693
 
 ### 7.1 Single-stage VEB detection
 
-DS2 VEB detection under each validation-fit strategy (5 seeds), with SynOps/beat:
+DS2 VEB detection under each validation-fit strategy (5 seeds), with SynOps/beat, is
+given in Table 2.
+
+**Table 2. Single-stage DS2 VEB detection under each validation-fit operating-point
+strategy (5 seeds); seed mean with [min, max].**
 
 | Operating point | VEB sensitivity | VEB PPV | F1 | SynOps/beat |
 |---|---|---|---|---|
@@ -402,7 +456,12 @@ the cascade is not F1-optimal, it is selected to satisfy both clinical threshold
 
 **Frontier (Figure 2).** Sweeping the VEB decision threshold on DS2 (an oracle
 sweep, shown only to characterize what is achievable, not as an operating point),
-the DS2 VEB PPV attainable at each sensitivity level spans, across the 5 seeds:
+the DS2 VEB PPV attainable at each sensitivity level spans, across the 5 seeds, the
+ranges in Table 3.
+
+**Table 3. DS2 VEB PPV attainable at each sensitivity level under an oracle DS2
+threshold sweep (range across 5 seeds). Shown to characterize what is achievable,
+not used as an operating point.**
 
 | Sensitivity >= | 0.80 | 0.85 | 0.90 | 0.92 |
 |---|---|---|---|---|
@@ -414,7 +473,11 @@ threshold, and no seed offers a single point at both sensitivity >= 0.90 and PPV
 
 ### 7.2 Cross-database generalization (single-stage)
 
-The frozen single-stage model (sens-first, fit on DS1 validation) applied unchanged:
+The frozen single-stage model (sens-first, fit on DS1 validation) applied unchanged
+is reported in Table 4.
+
+**Table 4. Frozen single-stage cross-database VEB detection (one operating point fit
+on DS1 validation, applied unchanged to all three databases).**
 
 | Database | Beats | VEB beats | VEB sensitivity | VEB PPV |
 |---|---:|---:|---|---|
@@ -432,7 +495,11 @@ report sensitivity and PPV separately rather than a single accuracy figure.
 ### 7.3 Two-stage gated-ensemble cascade
 
 The frozen cascade (screener recall target 0.97; confirmer fit for cascade
-PPV subject to cascade sensitivity >= 0.90; both on validation only):
+PPV subject to cascade sensitivity >= 0.90; both on validation only) is reported in
+Table 5.
+
+**Table 5. Frozen gated-ensemble cascade cross-database VEB detection (both stages'
+operating points fit on DS1 validation, then frozen).**
 
 | Database | Beats | VEB beats | VEB sensitivity | VEB PPV | Flag rate |
 |---|---:|---:|---|---|---|
@@ -455,7 +522,141 @@ Robustness to the confirmer composition: ensembles of K in {2, 3, 5} members and
 different 3-member subsets all give DS2 sensitivity >= 0.90 at PPV between 0.59 and
 0.64.
 
-### 7.4 Accuracy-energy Pareto (Figure 3)
+### 7.4 Per-record robustness
+
+Aggregate DS2 metrics can hide the fact that ventricular beats are unevenly
+distributed across patients: two records (200 and 233) hold 1,656 of the 3,220 DS2
+VEB beats (51%), so the headline sensitivity is effectively an average dominated by
+a few patients. Because a deployed device sees one patient at a time, per-record
+behaviour is the more deployment-relevant view. Table 6 gives the frozen cascade's
+per-record VEB result for the 16 DS2 records that contain at least one VEB beat;
+Figure 6 plots the same per-record sensitivity and PPV against each record's VEB
+count.
+
+**Table 6. Per-record DS2 VEB detection (frozen gated cascade), for the 16 records
+with at least one VEB beat, sorted by VEB count.** TP/FN/FP are beat counts;
+sensitivity = TP/(TP+FN); PPV = TP/(TP+FP).
+
+| Record | VEB beats | TP | FN | FP | Sensitivity | PPV |
+|---|---:|---:|---:|---:|---:|---:|
+| 233 | 830 | 746 | 84 | 15 | 0.899 | 0.980 |
+| 200 | 826 | 774 | 52 | 1 | 0.937 | 0.999 |
+| 221 | 396 | 393 | 3 | 143 | 0.992 | 0.733 |
+| 228 | 362 | 362 | 0 | 33 | 1.000 | 0.916 |
+| 214 | 256 | 255 | 1 | 364 | 0.996 | 0.412 |
+| 213 | 220 | 136 | 84 | 29 | 0.618 | 0.824 |
+| 210 | 195 | 171 | 24 | 102 | 0.877 | 0.626 |
+| 219 | 64 | 64 | 0 | 243 | 1.000 | 0.208 |
+| 105 | 41 | 41 | 0 | 121 | 1.000 | 0.253 |
+| 202 | 19 | 19 | 0 | 369 | 1.000 | 0.049 |
+| 123 | 3 | 3 | 0 | 2 | 1.000 | 0.600 |
+| 234 | 3 | 3 | 0 | 2 | 1.000 | 0.600 |
+| 231 | 2 | 2 | 0 | 7 | 1.000 | 0.222 |
+| 100 | 1 | 1 | 0 | 8 | 1.000 | 0.111 |
+| 111 | 1 | 1 | 0 | 7 | 1.000 | 0.125 |
+| 121 | 1 | 1 | 0 | 15 | 1.000 | 0.062 |
+
+The six remaining DS2 records contain no VEB beats and so contribute only false
+positives: 389 in total, which is 21% of all 1,850 DS2 false positives. Record 222
+alone emits 252 and record 113 emits 116.
+
+**Interpretation.** Three patterns bear on how much weight the headline deserves.
+(i) Sensitivity is carried by the two largest records: 200 (0.937) and 233 (0.899)
+supply half the VEB beats between them, so the aggregate 0.923 would move materially
+if either behaved differently. (ii) One record is genuinely weak: record 213 has 220
+VEB beats at sensitivity 0.618 and alone accounts for 84 of the 248 total missed
+beats (34%), a concentration that a beat-pooled metric obscures. (iii) PPV is highly
+non-uniform, ranging from about 0.05 to 0.999 across records; it is dragged down by
+a handful of records that emit many false positives relative to their VEB count
+(202, 214, 219, 105) and by the six VEB-free records. The headline PPV of 0.616 is
+therefore a prevalence-weighted average, not a value the detector attains on a
+typical single patient. This per-record dispersion is the concrete reason the
+patient-level bootstrap interval (Section 7.3) is so much wider than the beat-level
+one, and it is why we do not present the aggregate as a per-patient guarantee.
+
+### 7.5 Error composition
+
+To show which classes the detector confuses with VEB, Table 7 gives the
+VEB-versus-rest confusion for the frozen cascade on all three databases, with each
+false positive attributed to the true AAMI class of the beat that produced it.
+Table 8 gives the full five-class AAMI confusion for the single-stage model on DS2.
+
+**Table 7. VEB-versus-rest confusion for the frozen gated cascade, with false
+positives broken down by the true class of the beat.** TN is all correctly-rejected
+non-VEB beats.
+
+| Database | TP | FN | FP | TN | FP: N | FP: SVEB | FP: F | FP: Q |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| MIT-BIH DS2 | 2,972 | 248 | 1,850 | 44,623 | 1,610 | 227 | 9 | 4 |
+| MIT-BIH SVDB | 8,990 | 951 | 14,854 | 159,725 | 9,032 | 5,772 | 4 | 46 |
+| INCART | 18,020 | 1,986 | 3,565 | 152,240 | 2,758 | 747 | 58 | 2 |
+
+**Table 8. Single-stage DS2 five-class AAMI confusion matrix (frozen seed, sens-first
+operating point). Rows are true class, columns are predicted class.** Fusion (F) and
+unknown (Q) are suppressed by design (Section 5.3).
+
+| True \ Pred | N | SVEB | VEB | F | Q |
+|---|---:|---:|---:|---:|---:|
+| N | 39,970 | 1,059 | 2,752 | 163 | 297 |
+| SVEB | 1,154 | 222 | 221 | 0 | 240 |
+| VEB | 284 | 55 | 2,880 | 1 | 0 |
+| F | 347 | 0 | 24 | 17 | 0 |
+| Q | 3 | 0 | 4 | 0 | 0 |
+
+**What the errors are made of.** On DS2, false positives are dominated by normal
+beats (1,610 of 1,850, 87%), with a smaller but non-trivial supraventricular
+contribution (227, 12%); fusion and unknown are negligible. The single-stage matrix
+(Table 8) locates the same effect at the class level: the largest off-diagonal entry
+into the VEB column is N-to-VEB (2,752 beats), and 221 true SVEB beats are also read
+as VEB, consistent with single-lead morphological overlap between
+aberrantly-conducted supraventricular beats and ventricular ectopy. This overlap is
+what makes the SVDB PPV drop: on the supraventricular-dense SVDB, 5,772 of the
+14,854 false positives (39%) are true SVEB beats, a far larger share than on DS2
+(12%) or INCART (21%). The database with the most supraventricular beats produces the
+most SVEB-to-VEB confusion, so the lower SVDB PPV reflects class composition and
+single-lead ambiguity rather than a change in the detector's ventricular behaviour,
+whose sensitivity is stable across all three databases (Section 7.3).
+
+### 7.6 Statistical comparison
+
+To test whether the cascade's improvement over simpler configurations exceeds DS2
+sampling noise, we use a paired record-level bootstrap: we resample the 22 DS2
+records with replacement (2,000 resamples, respecting within-record correlation)
+and, on each resample, recompute the VEB F1 of two systems evaluated at their own
+frozen operating points, reporting the distribution of the paired difference. This
+is the record-level analogue of the interval in Section 7.3 and is stricter than a
+beat-level test because it does not treat beats from one patient as independent.
+
+**Table 9. Paired record-level bootstrap on DS2 (2,000 resamples). Difference in VEB
+F1, gated cascade minus the comparator; positive favours the cascade.** "Cascade
+better" is the fraction of resamples in which the cascade's F1 is higher.
+
+| Comparison | Median F1 difference | 95% interval | Cascade better |
+|---|---:|---:|---:|
+| Cascade vs single-stage (sens-first) | +0.103 | [+0.060, +0.142] | 100% |
+| Cascade vs full 5-seed ensemble (every beat) | +0.013 | [-0.003, +0.027] | 95% |
+
+The cascade's advantage over the single-stage model is large and consistent: its F1
+is higher in every one of the 2,000 record resamples and the interval excludes zero
+by a wide margin. Against the full five-seed ensemble that runs on every beat, the
+cascade is statistically indistinguishable in F1 (the interval includes zero) while
+using roughly a third of the operations (Section 7.7); the gating therefore buys the
+energy reduction at no measurable accuracy cost, which is the paper's central
+efficiency claim. We did not run a matched paired test against the CNN and LSTM
+baselines, which were trained for the operation-count comparison rather than saved
+for per-beat paired analysis; a paired patient-level comparison of the cascade
+against a fully quantized CNN under one frozen operating point is the comparison we
+recommend before a journal submission (Section 9). We report no p-values: at 22
+patients the bootstrap interval and the fraction of resamples favouring each system
+are the summaries we consider defensible.
+
+### 7.7 Accuracy-energy Pareto (Figure 3)
+
+DS2 accuracy against per-beat compute for the main configurations is given in
+Table 10.
+
+**Table 10. Accuracy-energy operating points on DS2. SNN rows are SynOps/beat; the
+dense-baseline comparison is in Table 11.**
 
 | Model | DS2 sens / PPV | Compute/beat |
 |---|---|---|
@@ -470,11 +671,15 @@ by running the ensemble only on flagged beats. The naive T32 cascade is a
 cautionary point: it costs more than the single-stage model, because a shorter
 network is not a cheaper one under count-pooled encoding (Section 8).
 
-### 7.5 Non-spiking baselines on the same split
+### 7.8 Non-spiking baselines on the same split
 
 We train 1-D CNN and LSTM baselines under the identical protocol: same DS1 train,
 same beat-plus-RR inputs, same validation-locked sens-first operating point, same
-frozen DS2 test, 5 seeds.
+frozen DS2 test, 5 seeds (Table 11).
+
+**Table 11. Non-spiking baselines under the identical validation-locked protocol.
+Operation units differ (SynOps vs MACs) and are not directly comparable, as
+discussed below.**
 
 | Model | DS2 sens | DS2 PPV | Operations/beat | Params |
 |---|---|---|---|---|
@@ -507,7 +712,19 @@ without changing the operation count, and a full int8 pipeline (quantized
 activations, with calibration) plus measured board energy is the comparison we
 recommend for a camera-ready version (Section 9).
 
-### 7.6 Supraventricular beats: a single-lead negative result
+**On baseline strength.** The CNN and LSTM here establish that the
+sensitivity/precision tradeoff is a property of the single-lead task and bound the
+operation-count gap, but they are not a complete embedded comparison, and we do not
+claim superiority over the strongest embedded ECG methods. A fuller comparison
+should add a small temporal convolutional network (TCN), a compact 1-D CNN or
+ResNet-lite, a classical morphology-plus-RR classifier (an SVM or gradient-boosted
+trees such as XGBoost), and a fully quantized int8 CNN with quantized activations
+and measured board energy. We report the weight-only int8 CNN above as a first step
+in that direction and mark the rest as future work (Section 9). Until those are in
+place, the efficiency result should be read as an operation-count advantage under the
+SynOps proxy, not as a demonstrated win over all embedded ECG baselines.
+
+### 7.9 Supraventricular beats: a single-lead negative result
 
 Supraventricular ectopic beats often differ from normal beats mainly in timing and
 subtle morphology, and DS1 contains few of them (Table 1). As an incidental output
@@ -515,24 +732,37 @@ of the VEB model, DS2 SVEB sensitivity is about 0.13; adding supraventricular-ri
 SVDB to training raises it to about 0.24, and a higher-time-resolution variant to
 about 0.27, all still low.
 
-We then trained a dedicated SVEB specialist (higher time resolution, SVDB and
-INCART added to training, an SVEB-first operating point, 5 seeds). It does not yield
-a usable detector:
+We then trained a dedicated SVEB specialist (higher time resolution, SVDB and INCART
+added to training, an SVEB-first operating point, 5 seeds). It does not yield a
+usable detector (Table 12).
+
+**Table 12. SVEB specialist on DS2 (non-standard training: SVDB and INCART added to
+training; see text). "Degraded" indicates the VEB class collapses at that regime.**
 
 | Seed regime | DS2 SVEB sens | DS2 SVEB PPV | DS2 VEB sens |
 |---|---|---|---|
 | calibrated (seeds 0 to 2) | 0.16 to 0.27 | 0.07 to 0.15 | degraded |
 | degenerate (seeds 3 to 4) | 0.82 to 0.94 | 0.04 to 0.06 | 0.18 to 0.24 |
 
-The high-sensitivity seeds reach it only by flagging almost all beats as SVEB (PPV
-at or below 0.06), which collapses the ventricular class. DS2 SVEB PPV never exceeds
-about 0.15 at any operating point, and the outcome is unstable across seeds. The
-same architecture reaches SVEB sensitivity 0.62 on 12-lead INCART, which indicates
-that the limiting factor is available lead information and data rather than model
-capacity. We therefore treat single-lead SVEB as an open problem and, importantly,
+The high-sensitivity seeds reach it only by flagging almost all beats as SVEB (PPV at
+or below 0.06), which collapses the ventricular class. DS2 SVEB PPV never exceeds
+about 0.15 at any operating point, and the outcome is unstable across seeds.
+
+**On the INCART result: in-domain, not external validation.** The same specialist
+reaches SVEB sensitivity about 0.62 on 12-lead INCART. This must not be read as
+external validation: INCART supraventricular beats were part of this specialist's
+augmented training set, so the INCART number is an in-domain, diagnostic observation.
+Read only as diagnostic, it is consistent with the limiting factor being available
+lead information rather than model capacity, since the 12-lead recording appears to
+separate supraventricular beats more readily; but because the beats are in-domain, it
+does not establish generalization and must not be interpreted as cross-database SVEB
+performance. (This is the one place in the paper where an external database enters
+training, and we confine it to this diagnostic role; the DS2 SVEB test set remains
+untouched.) We therefore treat single-lead SVEB as an open problem and, importantly,
 do not allow it to reshape the VEB operating point. Multi-lead input (MIT-BIH
 provides a second lead; supraventricular beats separate better on some leads) and
-richer SVEB training data are the natural next steps (Section 9).
+richer, genuinely held-out SVEB validation data are the natural next steps
+(Section 9).
 
 ---
 
@@ -541,10 +771,11 @@ richer SVEB training data are the natural next steps (Section 9).
 **(a) Honest evaluation lowers headline numbers but increases trust.** Freezing the
 operating point on validation rather than test, and reporting inter-patient rather
 than intra-patient results, lowers our headline metrics relative to test-tuned or
-intra-patient reports. The compensating evidence is transfer: the same frozen
-operating point holds VEB sensitivity at or above 0.90 across three databases,
-which a test-tuned threshold cannot promise. We regard the frozen cross-database
-result as the most decision-relevant number in the paper.
+intra-patient reports. The compensating evidence is stability under a fixed decision
+rule: with one frozen operating point, VEB sensitivity remained at or above 0.90
+across three databases, while PPV varied by database, which a threshold tuned per
+test set would not demonstrate. We regard this frozen cross-database behaviour as the
+most decision-relevant result in the paper.
 
 **(b) Energy-accounted models need explicit budgets.** Reporting SynOps for every
 configuration, and enforcing a fixed budget, changes which design choices look
@@ -554,17 +785,20 @@ rather than incidental.
 
 **(c) Time resolution is not the same as energy cost under count-pooled encoding.**
 Because count-pooling approximately conserves total input spikes across T, the
-dominant SynOps term is roughly independent of T. Two consequences follow: raising T
-sharpens discrimination at almost no energy cost, and a shorter network is not a
-cheaper one. A screener must be made cheap by reducing channels, hidden units, or
-spike rate (via a higher threshold), which is exactly how our screener is built.
+dominant SynOps term is roughly independent of T in our measurements. Two
+consequences follow under this encoding: raising T can sharpen discrimination at
+little additional energy cost, and a shorter network is not necessarily a cheaper
+one. A screener is therefore made cheap by reducing channels, hidden units, or spike
+rate (via a higher threshold), which is how our screener is built.
 
-**(d) The cascade addresses a calibration-variance limit at low average cost.** The
-DS2 oracle frontier shows that sensitivity >= 0.90 at PPV >= 0.60 is attainable, yet
-single models calibrated on a small validation holdout land there only
-occasionally and vary across seeds. A small ensemble both reduces model variance and
-calibrates more stably, reaching 0.918 / 0.634 on DS2 for three members; gating it
-behind a sparse screener delivers that accuracy within budget.
+**(d) The cascade is consistent with reducing a calibration-variance limit at low
+average cost.** The DS2 oracle frontier shows that sensitivity >= 0.90 at PPV >= 0.60
+is attainable, yet single models calibrated on a small validation holdout land there
+only occasionally and vary across seeds. A small ensemble reduces model variance and
+appears to calibrate more stably, reaching 0.918 / 0.634 on DS2 for three members;
+gating it behind a sparse screener delivers comparable accuracy within budget, and
+the paired bootstrap (Section 7.6) confirms the cascade matches the full ensemble in
+F1 at a fraction of the operations.
 
 **(e) VEB is promising; single-lead SVEB is not solved.** The VEB result is usable
 under a strict protocol and an energy budget. The SVEB result is a clean negative
@@ -582,10 +816,19 @@ count, and it is the interval we treat as the honest uncertainty.
 
 ## 9. Limitations
 
-- **SynOps is a compute proxy, not measured energy.** Actual joules depend on the
-  target chip, on-chip and off-chip memory movement, the compiler and runtime, the
-  sensor and encoding front end, and the specific implementation. We report no
-  measured hardware energy.
+- **SynOps is an architecture-level compute proxy, not hardware energy.** The SynOps
+  count is a property of the network and its spike statistics; it should be
+  interpreted as a compute proxy and not as measured joules. Real energy on a device
+  depends on the specific neuromorphic chip or microcontroller and its
+  energy-per-operation, on-chip and off-chip memory movement (frequently the true
+  bottleneck), the input-encoding pipeline, the compiler and runtime, the sensor
+  front end and analog-to-digital conversion, the R-peak detection stage, and whether
+  inference runs batched or streaming. We report no measured hardware energy, and the
+  operation-count gap to the dense baselines (Section 7.8) is an operation-count
+  difference under a proxy, not an energy ratio. Measuring end-to-end energy on both
+  a microcontroller (for the quantized CNN) and a neuromorphic target (for the SNN)
+  is the single most important addition for any hardware-energy claim and is our
+  primary item of future work.
 - **Retrospective public data only.** All data are curated public research
   databases with expert beat annotations. Performance on raw, artefact-laden
   device recordings is untested.
@@ -619,50 +862,63 @@ a controlled compute budget, with predictable cross-database behaviour, is the
 relevant property, and PPV in the 0.6 range is acceptable for a screening stage
 that feeds human or higher-tier automated review.
 
-We make no claim of diagnostic readiness. A path to product would require, at
-minimum, measured energy on the intended microcontroller or neuromorphic hardware,
-prospective validation on device-quality recordings, integration into a clinical
-workflow with defined alarm handling, quality-system and software-as-a-medical-
-device processes, and a regulatory strategy. The present contribution is a
-methodological and feasibility result, not a cleared device.
+We make no claim of diagnostic or product readiness, and the current experiment
+deliberately isolates the classifier: it assumes accurate, pre-annotated R-peak
+locations and clean, curated beats. A deployable system would additionally require
+robust on-device R-peak detection, rejection of unreadable or noise-corrupted
+segments, motion-artifact handling, streaming (rather than whole-record batch)
+inference, an explicit policy for uncertain or borderline beats, patient-level
+summarization and reporting rather than per-beat labels, integration into a clinical
+workflow with defined alarm handling, measured energy on the target hardware, and
+quality-system, software-as-a-medical-device, and regulatory validation. NeuroBeat
+as evaluated here is therefore a candidate low-power component for such a pipeline,
+not a complete or cleared product.
 
 ---
 
 ## 11. Conclusion
 
-NeuroBeat shows that a compact, conventional spiking network, evaluated under a
-conservative validation-locked inter-patient protocol and held to an explicit
-per-beat SynOps budget, can reach useful ventricular-ectopic-beat sensitivity and
-precision (0.923 sensitivity at 0.616 PPV on MIT-BIH DS2, within 23,385
-SynOps/beat) using a gated-ensemble cascade, while transferring at or above 0.90
-sensitivity to two unseen databases under one frozen operating point. The main
-contribution is not a new architecture but an honest, energy-accounted evaluation
-pattern for low-power ECG detection, together with a clearly reported negative
-result for single-lead supraventricular detection. We hope the protocol, the SynOps
-budgeting, and the released artifacts are reusable by others reporting SNN-ECG
-results.
+NeuroBeat is a deliberately compact and conventional spiking network; its main
+contribution is not the architecture but the evaluation. Under a validation-locked
+inter-patient protocol and an explicit per-beat SynOps budget, a gated-ensemble
+cascade reaches 0.923 VEB sensitivity at 0.616 PPV on MIT-BIH DS2 within 23,385
+SynOps/beat, and, under one frozen operating point, keeps VEB sensitivity at or above
+0.90 on two unseen databases. The results come with clear boundaries: SynOps is a
+compute proxy and not measured energy; PPV varies with database class composition
+and is dispersed across patients, so a patient-level bootstrap gives wide intervals;
+single-lead supraventricular detection is reported as an unresolved negative result;
+and nothing here has been clinically validated. Within those boundaries, the useful
+output is a reusable pattern for reporting SNN-ECG work: lock the operating point on
+validation, account for per-beat compute, freeze cross-database tests, and report the
+per-patient and negative results rather than only the headline. We release the
+protocol, the SynOps budgeting, and all artifacts so that others can reuse and
+scrutinize them.
 
 ---
 
-## 12. Reproducibility
+## 12. Code and data availability
 
-- Repository: github.com/Talch87/neuro-beat (AGPL-3.0 / commercial dual license)
-- Live results page: talch87.github.io/neuro-beat
-- Frozen artifacts: `models/neurobeat-veb-v1/` (single-stage weights and operating
-  point, sparse screener, three confirmer members, gated-cascade configuration,
-  model card)
-- Protocol harnesses: `experiments/freeze_veb_v1.py` (single-stage; `--refit-only`
-  re-tunes the operating point from cache), `experiments/gated_ensemble_veb.py`
-  (cascade), `experiments/baselines_veb.py` (CNN/LSTM)
-- All experiments use 5 seeds with the operating point fit on DS1 validation only.
+- **Code:** github.com/Talch87/neuro-beat (AGPL-3.0 / commercial dual license).
+- **Live results page:** talch87.github.io/neuro-beat.
+- **Data:** all databases are public on PhysioNet: the MIT-BIH Arrhythmia Database
+  [Moody2001, Goldberger2000], the MIT-BIH Supraventricular Arrhythmia Database
+  (SVDB), and the St. Petersburg INCART 12-lead Arrhythmia Database. No private or
+  patient-identifiable data are used.
+- **Frozen artifacts:** `models/neurobeat-veb-v1/` (single-stage weights and
+  operating point, sparse screener, three confirmer members, gated-cascade
+  configuration, model card).
+- **Protocol and analysis harnesses:** `experiments/freeze_veb_v1.py` (single-stage;
+  `--refit-only` re-tunes the operating point from cache),
+  `experiments/gated_ensemble_veb.py` (cascade), `experiments/baselines_veb.py`
+  (CNN/LSTM), `experiments/quantized_cnn.py` (int8 CNN), `experiments/stats_ci.py`
+  (bootstrap confidence intervals), and `experiments/error_analysis.py` (per-record
+  Table 6, confusion Tables 7 and 8, and paired bootstrap Table 9).
+- All experiments use 5 seeds with the operating point fit on DS1 validation only;
+  every table in this paper is regenerable from the released cache.
 
 ---
 
 ## References
-
-*Compiled and cross-checked against source pages (arXiv, PubMed) and literature
-search, July 2026. The Neurocomputing entry's author list is from a secondary search
-and should be confirmed against the publisher page.*
 
 - **[AAMI-EC57]** ANSI/AAMI EC57. *Testing and Reporting Performance Results of
   Cardiac Rhythm and ST-Segment Measurement Algorithms.* Association for the
@@ -676,8 +932,10 @@ and should be confirmed against the publisher page.*
   Standards, Fair Evaluation, and Embedded Feasibility." arXiv:2503.07276, 2025.
 - **[Moody2001]** G. B. Moody, R. G. Mark. "The impact of the MIT-BIH Arrhythmia
   Database." *IEEE Eng. Med. Biol. Mag.*, 20(3):45 to 50, 2001.
+  doi:10.1109/51.932724.
 - **[Goldberger2000]** A. L. Goldberger et al. "PhysioBank, PhysioToolkit, and
   PhysioNet." *Circulation*, 101(23):e215 to e220, 2000.
+  doi:10.1161/01.CIR.101.23.e215.
 - **[Neftci2019]** E. O. Neftci, H. Mostafa, F. Zenke. "Surrogate Gradient
   Learning in Spiking Neural Networks." *IEEE Signal Process. Mag.*,
   36(6):51 to 63, 2019.
@@ -697,5 +955,5 @@ and should be confirmed against the publisher page.*
   arXiv:2406.06543, 2024.
 - **[AxonalDelays2025]** J. Galvis-Chacon, O. Ramos-Soto, D. Oliva,
   A. Patino-Saucedo. "Robust ECG signal classification using spiking neural
-  networks with axonal delays." *Neurocomputing*, 2025.
-  (ScienceDirect S0925231225029315; author list from secondary search, to confirm.)
+  networks with axonal delays." *Neurocomputing*, 2025. Article S0925231225029315
+  (ScienceDirect).
