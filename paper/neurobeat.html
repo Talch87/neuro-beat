@@ -206,7 +206,9 @@ holds VEB sensitivity at or above 0.90 across DS2, SVDB, and INCART
 under one frozen operating point. On DS2 a patient-level bootstrap over
 the 22 records gives wide intervals (sensitivity 0.850 to 0.976, PPV
 0.355 to 0.814), which we report as the honest uncertainty for a
-22-patient test set.</p>
+22-patient test set. Replacing annotated R-peaks with a standard
+detector at inference lowers end-to-end VEB detection modestly, to 0.884
+/ 0.593.</p>
 <p><strong>Limitations and relevance.</strong> SynOps is a compute
 proxy, not measured hardware energy. Supraventricular (SVEB) detection
 on a single lead is not achievable at usable precision in this setup and
@@ -1534,6 +1536,74 @@ VEB operating point. Multi-lead input (MIT-BIH provides a second lead;
 supraventricular beats separate better on some leads) and richer,
 genuinely held-out SVEB validation data are the natural next steps
 (Section 9).</p>
+<h3 id="end-to-end-detection-with-detected-r-peaks">7.10 End-to-end
+detection with detected R-peaks</h3>
+<p>Every result so far assumes ground-truth R-peak locations. To test
+how far that assumption carries, we ran the frozen cascade on DS2 with
+beats segmented at DETECTED R-peaks and RR features recomputed from the
+detected-peak spacing (no annotations at inference), scoring VEB
+detection against the true labels so that a missed R-peak becomes an
+end-to-end false negative and a spurious detection an end-to-end false
+positive. We report two detectors: wfdb’s standard XQRS detector and the
+repository’s minimal static-threshold on-patch detector (Table 14).</p>
+<p><strong>Table 14. End-to-end DS2 VEB detection with detected (not
+annotated) R-peaks. Beat sensitivity/PPV are for R-peak detection; the
+last two columns are the frozen cascade scored against true labels
+through each detector.</strong></p>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr>
+<th>Detector</th>
+<th style="text-align: right;">Beat sens</th>
+<th style="text-align: right;">Beat PPV</th>
+<th style="text-align: right;">End-to-end VEB sens</th>
+<th style="text-align: right;">End-to-end VEB PPV</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Annotated R-peaks (reference)</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">0.923</td>
+<td style="text-align: right;">0.616</td>
+</tr>
+<tr>
+<td>XQRS (standard)</td>
+<td style="text-align: right;">0.997</td>
+<td style="text-align: right;">0.999</td>
+<td style="text-align: right;">0.884</td>
+<td style="text-align: right;">0.593</td>
+</tr>
+<tr>
+<td>Minimal on-patch detector</td>
+<td style="text-align: right;">0.784</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">0.513</td>
+<td style="text-align: right;">0.479</td>
+</tr>
+</tbody>
+</table>
+<p>With a competent standard detector (XQRS, beat sensitivity 0.997),
+the end-to-end cost is modest: VEB sensitivity falls from 0.923 to 0.884
+and PPV from 0.616 to 0.593. Of the 3,220 true VEBs, 126 (3.9%) are
+missed because XQRS places no peak on them, a higher rate than its 0.3%
+overall beat-miss rate and consistent with ventricular beats being
+harder to detect (wide, atypical QRS); the remainder of the drop is 247
+detected-but-misclassified VEBs. The minimal on-patch detector tells the
+other half of the story: its beat sensitivity is only 0.784 and
+end-to-end VEB sensitivity collapses to 0.513. The R-peak stage is
+therefore a first-order determinant of end-to-end performance: paired
+with a competent detector the annotation-conditional headline degrades
+gracefully, but a weak detector is catastrophic, so detector choice
+cannot be treated as an afterthought.</p>
 <hr />
 <h2 id="discussion">8. Discussion</h2>
 <p><strong>(a) Honest evaluation lowers headline numbers but increases
@@ -1614,9 +1684,13 @@ Performance on raw, artefact-laden device recordings is untested.</li>
 single-model operating points noisy; the ensemble mitigates but does not
 remove this. A larger or cross-validated holdout is likely to tighten
 calibration.</li>
-<li><strong>Detection is conditional on R-peak annotations.</strong> We
-use provided annotations and do not include a beat detector; end-to-end
-performance would also depend on detector errors.</li>
+<li><strong>Detection depends on the R-peak stage.</strong> The headline
+numbers use provided annotations. An end-to-end ablation (Section 7.10)
+shows that swapping in a standard detector (XQRS) lowers VEB
+sensitivity/PPV modestly to 0.884 / 0.593, but a weak detector collapses
+them to 0.513 / 0.479. A deployable system must include a competent
+R-peak detector, and its errors, especially missed ventricular beats,
+propagate to the end-to-end result.</li>
 <li><strong>Prevalence-dependent PPV.</strong> Cross-database PPV is
 sensitive to class composition, so PPV numbers should be read together
 with the beat counts.</li>
@@ -1643,19 +1717,21 @@ downstream review. In such a role, high sensitivity at a controlled
 compute budget, with predictable cross-database behaviour, is the
 relevant property, and PPV in the 0.6 range is acceptable for a
 screening stage that feeds human or higher-tier automated review.</p>
-<p>We make no claim of diagnostic or product readiness, and the current
-experiment deliberately isolates the classifier: it assumes accurate,
-pre-annotated R-peak locations and clean, curated beats. A deployable
-system would additionally require robust on-device R-peak detection,
-rejection of unreadable or noise-corrupted segments, motion-artifact
-handling, streaming (rather than whole-record batch) inference, an
-explicit policy for uncertain or borderline beats, patient-level
-summarization and reporting rather than per-beat labels, integration
-into a clinical workflow with defined alarm handling, measured energy on
-the target hardware, and quality-system, software-as-a-medical-device,
-and regulatory validation. NeuroBeat as evaluated here is therefore a
-candidate low-power component for such a pipeline, not a complete or
-cleared product.</p>
+<p>We make no claim of diagnostic or product readiness, and the headline
+experiment deliberately isolates the classifier by assuming
+pre-annotated R-peak locations and clean, curated beats; Section 7.10
+relaxes the first assumption and shows the end-to-end cost of the R-peak
+stage is modest with a standard detector and severe with a weak one. A
+deployable system would additionally require robust on-device R-peak
+detection, rejection of unreadable or noise-corrupted segments,
+motion-artifact handling, streaming (rather than whole-record batch)
+inference, an explicit policy for uncertain or borderline beats,
+patient-level summarization and reporting rather than per-beat labels,
+integration into a clinical workflow with defined alarm handling,
+measured energy on the target hardware, and quality-system,
+software-as-a-medical-device, and regulatory validation. NeuroBeat as
+evaluated here is therefore a candidate low-power component for such a
+pipeline, not a complete or cleared product.</p>
 <hr />
 <h2 id="conclusion">11. Conclusion</h2>
 <p>NeuroBeat is a deliberately compact and conventional spiking network;
@@ -1700,8 +1776,10 @@ configuration, model card).</li>
 gradient-boosted trees, SVM, and the paired bootstrap of Table 12),
 <code>experiments/quantized_cnn.py</code> (int8 CNN),
 <code>experiments/stats_ci.py</code> (bootstrap confidence intervals),
-and <code>experiments/error_analysis.py</code> (per-record Table 6,
-confusion Tables 7 and 8, and paired bootstrap Table 9).</li>
+<code>experiments/error_analysis.py</code> (per-record Table 6,
+confusion Tables 7 and 8, and paired bootstrap Table 9), and
+<code>experiments/end2end_rpeak.py</code> (detected-R-peak end-to-end
+ablation, Table 14).</li>
 <li>All experiments use 5 seeds with the operating point fit on DS1
 validation only; every table in this paper is regenerable from the
 released cache.</li>

@@ -34,7 +34,8 @@ VEB sensitivity 0.923 at PPV 0.616 on DS2 within 23,385 SynOps/beat, and holds V
 sensitivity at or above 0.90 across DS2, SVDB, and INCART under one frozen operating
 point. On DS2 a patient-level bootstrap over the 22 records gives wide intervals
 (sensitivity 0.850 to 0.976, PPV 0.355 to 0.814), which we report as the honest
-uncertainty for a 22-patient test set.
+uncertainty for a 22-patient test set. Replacing annotated R-peaks with a standard
+detector at inference lowers end-to-end VEB detection modestly, to 0.884 / 0.593.
 
 **Limitations and relevance.** SynOps is a compute proxy, not measured hardware
 energy. Supraventricular (SVEB) detection on a single lead is not achievable at
@@ -791,6 +792,38 @@ provides a second lead; supraventricular beats separate better on some leads) an
 richer, genuinely held-out SVEB validation data are the natural next steps
 (Section 9).
 
+### 7.10 End-to-end detection with detected R-peaks
+
+Every result so far assumes ground-truth R-peak locations. To test how far that
+assumption carries, we ran the frozen cascade on DS2 with beats segmented at DETECTED
+R-peaks and RR features recomputed from the detected-peak spacing (no annotations at
+inference), scoring VEB detection against the true labels so that a missed R-peak
+becomes an end-to-end false negative and a spurious detection an end-to-end false
+positive. We report two detectors: wfdb's standard XQRS detector and the repository's
+minimal static-threshold on-patch detector (Table 14).
+
+**Table 14. End-to-end DS2 VEB detection with detected (not annotated) R-peaks. Beat
+sensitivity/PPV are for R-peak detection; the last two columns are the frozen cascade
+scored against true labels through each detector.**
+
+| Detector | Beat sens | Beat PPV | End-to-end VEB sens | End-to-end VEB PPV |
+|---|---:|---:|---:|---:|
+| Annotated R-peaks (reference) | 1.000 | 1.000 | 0.923 | 0.616 |
+| XQRS (standard) | 0.997 | 0.999 | 0.884 | 0.593 |
+| Minimal on-patch detector | 0.784 | 1.000 | 0.513 | 0.479 |
+
+With a competent standard detector (XQRS, beat sensitivity 0.997), the end-to-end cost
+is modest: VEB sensitivity falls from 0.923 to 0.884 and PPV from 0.616 to 0.593. Of
+the 3,220 true VEBs, 126 (3.9%) are missed because XQRS places no peak on them, a
+higher rate than its 0.3% overall beat-miss rate and consistent with ventricular beats
+being harder to detect (wide, atypical QRS); the remainder of the drop is 247
+detected-but-misclassified VEBs. The minimal on-patch detector tells the other half of
+the story: its beat sensitivity is only 0.784 and end-to-end VEB sensitivity collapses
+to 0.513. The R-peak stage is therefore a first-order determinant of end-to-end
+performance: paired with a competent detector the annotation-conditional headline
+degrades gracefully, but a weak detector is catastrophic, so detector choice cannot be
+treated as an afterthought.
+
 ---
 
 ## 8. Discussion
@@ -866,9 +899,12 @@ count, and it is the interval we treat as the honest uncertainty.
 - **Small validation holdout.** Three DS1 records make single-model operating
   points noisy; the ensemble mitigates but does not remove this. A larger or
   cross-validated holdout is likely to tighten calibration.
-- **Detection is conditional on R-peak annotations.** We use provided annotations
-  and do not include a beat detector; end-to-end performance would also depend on
-  detector errors.
+- **Detection depends on the R-peak stage.** The headline numbers use provided
+  annotations. An end-to-end ablation (Section 7.10) shows that swapping in a standard
+  detector (XQRS) lowers VEB sensitivity/PPV modestly to 0.884 / 0.593, but a weak
+  detector collapses them to 0.513 / 0.479. A deployable system must include a
+  competent R-peak detector, and its errors, especially missed ventricular beats,
+  propagate to the end-to-end result.
 - **Prevalence-dependent PPV.** Cross-database PPV is sensitive to class
   composition, so PPV numbers should be read together with the beat counts.
 - **Single lead.** Results use one lead; SVEB in particular appears to need more
@@ -893,11 +929,13 @@ a controlled compute budget, with predictable cross-database behaviour, is the
 relevant property, and PPV in the 0.6 range is acceptable for a screening stage
 that feeds human or higher-tier automated review.
 
-We make no claim of diagnostic or product readiness, and the current experiment
-deliberately isolates the classifier: it assumes accurate, pre-annotated R-peak
-locations and clean, curated beats. A deployable system would additionally require
-robust on-device R-peak detection, rejection of unreadable or noise-corrupted
-segments, motion-artifact handling, streaming (rather than whole-record batch)
+We make no claim of diagnostic or product readiness, and the headline experiment
+deliberately isolates the classifier by assuming pre-annotated R-peak locations and
+clean, curated beats; Section 7.10 relaxes the first assumption and shows the
+end-to-end cost of the R-peak stage is modest with a standard detector and severe with
+a weak one. A deployable system would additionally require robust on-device R-peak
+detection, rejection of unreadable or noise-corrupted segments, motion-artifact
+handling, streaming (rather than whole-record batch)
 inference, an explicit policy for uncertain or borderline beats, patient-level
 summarization and reporting rather than per-beat labels, integration into a clinical
 workflow with defined alarm handling, measured energy on the target hardware, and
@@ -943,9 +981,10 @@ scrutinize them.
   `experiments/gated_ensemble_veb.py` (cascade), `experiments/baselines_veb.py`
   (CNN/LSTM), `experiments/baselines_extra.py` (TCN, ResNet-lite, gradient-boosted
   trees, SVM, and the paired bootstrap of Table 12), `experiments/quantized_cnn.py`
-  (int8 CNN), `experiments/stats_ci.py` (bootstrap confidence intervals), and
+  (int8 CNN), `experiments/stats_ci.py` (bootstrap confidence intervals),
   `experiments/error_analysis.py` (per-record Table 6, confusion Tables 7 and 8, and
-  paired bootstrap Table 9).
+  paired bootstrap Table 9), and `experiments/end2end_rpeak.py` (detected-R-peak
+  end-to-end ablation, Table 14).
 - All experiments use 5 seeds with the operating point fit on DS1 validation only;
   every table in this paper is regenerable from the released cache.
 
