@@ -1,10 +1,14 @@
-# NeuroBeat: Energy-Accounted Spiking Networks for Honest Inter-Patient Ventricular Ectopic Beat Detection
+---
+title: "NeuroBeat: Energy-Accounted Spiking Networks for Honest Inter-Patient Ventricular Ectopic Beat Detection"
+author: "Valerio Merlini (independent researcher)"
+date: "July 2026"
+---
 
-**Author:** Valerio Merlini (independent researcher)
-**Contact:** github.com/Talch87/neuro-beat
-**Status:** Preprint draft, content-complete. All results are from locked 5-seed runs
-(val-locked, DS2 frozen). Pending before posting: LaTeX build and a final author-list
-check on the SNN-ECG references marked †.
+*Contact:* github.com/Talch87/neuro-beat &nbsp;·&nbsp; *Code, weights, live dashboard:* talch87.github.io/neuro-beat
+
+*Status: preprint draft, content-complete. All results are from locked 5-seed runs
+(val-locked, DS2 frozen). Pending before posting: a final author-list check on the
+SNN-ECG references marked †.*
 
 ---
 
