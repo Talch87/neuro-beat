@@ -2,7 +2,9 @@
 
 **Author:** Valerio Merlini (independent researcher)
 **Contact:** github.com/Talch87/neuro-beat
-**Status:** Preprint draft — results marked `[FROZEN: …]` are filled from the locked 5-seed run.
+**Status:** Preprint draft, content-complete. All results are from locked 5-seed runs
+(val-locked, DS2 frozen). Pending before posting: LaTeX build and a final author-list
+check on the SNN-ECG references marked †.
 
 ---
 
@@ -83,21 +85,42 @@ dashboard.
 
 ## 2. Related Work
 
-*(Citations to be verified before submission; grouped by theme.)*
+**Inter-patient benchmarks and evaluation hygiene.** The AAMI EC57 standard
+[AAMI-EC57] defines the five beat classes and the sensitivity/PPV reporting
+convention. de Chazal et al. [deChazal2004] introduced the patient-disjoint
+DS1/DS2 split (44 MIT-BIH records, ~50k beats each) that we adopt. A 2025
+systematic review [Silva2025] surveys 2017–2024 arrhythmia classifiers and finds
+that, despite high reported accuracy, few studies implement patient-independent
+partitioning or account for embedded constraints — the exact gap our protocol
+targets. NeuroBeat contributes an explicitly val-locked operating point (fit on a
+DS1 holdout, never on DS2) and cross-database external validation on top of the
+DS1/DS2 convention.
 
-**SNNs for ECG / arrhythmia.** [prior SNN-ECG methods; encoding schemes;
-reported protocols and whether inter- vs intra-patient].
+**SNNs for ECG / arrhythmia.** SNNs are attractive for ECG because event-driven
+computation maps onto low-power neuromorphic hardware. Prior work reports strong
+MIT-BIH accuracy with delta-modulation encoding of the ECG and its derivatives
+[SNN-ECG-BSPC2021], spike-driven neuromorphic processors for wearable ECG
+[Chu2022], hardware/software co-design [SparrowSNN2024], and axonal-delay SNNs
+[AxonalDelays2025]. Our encoding (count-pooled delta channels over signal orders)
+is in this family, but most of these report intra-patient or test-tuned accuracy;
+we instead report val-locked inter-patient numbers with explicit energy budgets
+and a negative result for the supraventricular class.
 
-**Inter-patient arrhythmia benchmarks.** de Chazal et al. DS1/DS2 split;
-AAMI EC57 evaluation convention; representative CNN/LSTM inter-patient results.
+**SNN training and energy.** We train with surrogate-gradient
+backpropagation-through-time [Neftci2019] via snnTorch [Eshraghian2023]. On
+neuromorphic substrates, per-inference energy scales with synaptic operations;
+reported ECG figures show ~4.68 µJ/inference on a neuromorphic chip versus
+~450 µJ on a conventional processor [Chu2022], and general-purpose neuromorphic
+cores such as Loihi [Davies2018] motivate the SynOps proxy we budget against.
 
-**Energy accounting for neuromorphic inference.** SynOps as an energy proxy;
-neuromorphic hardware (Loihi, Akida, SpiNNaker) energy-per-SynOp figures.
+**Cascaded / gated inference.** Two-stage screener–confirmer and energy-gated
+designs are standard elsewhere for trading average cost against accuracy; we
+apply the pattern to keep an ensemble-grade confirmer affordable by running it
+only on flagged candidates.
 
-**Cascaded / two-stage detectors.** Attention/gating cascades; energy-gated
-inference; screener–confirmer designs in other domains.
-
-*(For each theme: 3–5 verified references and a one-line contrast to NeuroBeat.)*
+**Data.** MIT-BIH [Moody2001], its Supraventricular database (SVDB), and the
+St. Petersburg INCART 12-lead database are distributed via PhysioNet
+[Goldberger2000].
 
 ---
 
@@ -276,8 +299,28 @@ all three databases. Ensemble composition is robust: K∈{2,3,5} and different
 
 ### 5.4 Baselines on the same split
 
-`[FROZEN: non-spiking CNN and LSTM on the identical DS1→DS2 split, from the
-repo checkpoints; accuracy and (where applicable) parameter/op comparison.]`
+We train non-spiking CNN and LSTM baselines under the **identical** protocol —
+same DS1-train, same beat+RR inputs, same DS1-val sens-first operating point,
+same frozen DS2 test, 5 seeds:
+
+| Model | DS2 VEB sens | DS2 VEB PPV | Ops/beat | Params |
+|---|---|---|---|---|
+| CNN (1-D, beat+RR) | 0.945 | 0.434 | 356k MACs | 2.9k |
+| LSTM (beat+RR) | 0.940 | 0.178 | 4.26M MACs | 17.5k |
+| SNN single-stage v1 | 0.894 | 0.490 | 14.2k SynOps | 18k |
+| **SNN gated-ensemble** | **0.923** | **0.616** | **23.4k SynOps** | — |
+
+Two observations. First, the dense baselines exhibit the *same*
+sensitivity–precision tradeoff — under the sens-first operating point they reach
+high sensitivity (~0.94) but low PPV (0.43 CNN, 0.18 LSTM) — confirming the
+tradeoff is a property of single-lead VEB detection, not of spiking networks.
+Second, on the operation count that stands in for energy, the SNN is far cheaper:
+the CNN and LSTM require ~356k and ~4.26M multiply-accumulates per beat, whereas
+the SNN performs ~14–23k synaptic operations. A MAC and a SynOp are not identical
+units — a SynOp is a single accumulate triggered by a spike, and on neuromorphic
+hardware is cheaper than a clocked MAC — so the ~15–180× operation-count gap is a
+conservative lower bound on the energy advantage. The gated-ensemble SNN also
+attains the best precision (0.616) of any model at comparable sensitivity.
 
 ### 5.5 Supraventricular beats: a single-lead limitation
 
@@ -325,8 +368,8 @@ DS2 oracle frontier shows ≥0.90 sensitivity at ≥0.60 PPV is achievable, yet 
 single model calibrated on the small validation holdout rarely lands there and
 varies widely across seeds. A K-seed deep ensemble both averages away model
 variance and calibrates cleanly, reaching the target corner
-(`[FROZEN: ~0.92/0.63]` on DS2 with ~0.90 sensitivity across all three
-databases). The two-stage **gated-ensemble** cascade delivers this accuracy
+(0.918 / 0.634 on DS2 for a 3-seed ensemble, with ~0.90 sensitivity across all
+three databases). The two-stage **gated-ensemble** cascade delivers this accuracy
 within the energy budget by running the ensemble only on flagged candidates.
 
 **The honest protocol costs headline accuracy but buys trust.** Freezing the
@@ -356,5 +399,46 @@ and we treat supraventricular detection as a separate, data-limited problem.
 - Repository: github.com/Talch87/neuro-beat (AGPL-3.0 / commercial dual license)
 - Live dashboard: talch87.github.io/neuro-beat
 - Frozen artifact: `models/neurobeat-veb-v1/{weights.pt, operating_point.json}`
-- Protocol harness: `experiments/freeze_veb_v1.py`, `experiments/two_stage_veb.py`
+- Protocol harness: `experiments/freeze_veb_v1.py`, `experiments/gated_ensemble_veb.py`,
+  `experiments/baselines_veb.py`
 - All experiments: 5 seeds, operating point fit on DS1-val only.
+
+---
+
+## References
+
+*Compiled and cross-checked via literature search (July 2026). Author lists for the
+SNN-ECG works marked † should be confirmed against the source before submission.*
+
+- **[AAMI-EC57]** ANSI/AAMI EC57. *Testing and Reporting Performance Results of
+  Cardiac Rhythm and ST-Segment Measurement Algorithms.* Association for the
+  Advancement of Medical Instrumentation.
+- **[deChazal2004]** P. de Chazal, M. O'Dwyer, R. B. Reilly. "Automatic
+  classification of heartbeats using ECG morphology and heartbeat interval
+  features." *IEEE Trans. Biomed. Eng.*, 51(7):1196–1206, 2004.
+  doi:10.1109/TBME.2004.827359.
+- **[Silva2025]** G. Silva, P. Silva, G. Moreira, V. Freitas, J. Gertrudes,
+  E. Luz. "A Systematic Review of ECG Arrhythmia Classification: Adherence to
+  Standards, Fair Evaluation, and Embedded Feasibility." arXiv:2503.07276, 2025.
+- **[Moody2001]** G. B. Moody, R. G. Mark. "The impact of the MIT-BIH Arrhythmia
+  Database." *IEEE Eng. Med. Biol. Mag.*, 20(3):45–50, 2001.
+- **[Goldberger2000]** A. L. Goldberger et al. "PhysioBank, PhysioToolkit, and
+  PhysioNet." *Circulation*, 101(23):e215–e220, 2000.
+- **[Neftci2019]** E. O. Neftci, H. Mostafa, F. Zenke. "Surrogate Gradient
+  Learning in Spiking Neural Networks." *IEEE Signal Process. Mag.*,
+  36(6):51–63, 2019.
+- **[Eshraghian2023]** J. K. Eshraghian et al. "Training Spiking Neural Networks
+  Using Lessons From Deep Learning." *Proc. IEEE*, 111(9):1016–1054, 2023.
+- **[Davies2018]** M. Davies et al. "Loihi: A Neuromorphic Manycore Processor
+  with On-Chip Learning." *IEEE Micro*, 38(1):82–99, 2018.
+- **[SNN-ECG-BSPC2021]** † "Energy efficient ECG classification with spiking
+  neural network." *Biomed. Signal Process. Control*, 2021.
+  (ScienceDirect S1746809420303098.)
+- **[Chu2022]** † "A Neuromorphic Processing System With Spike-Driven SNN
+  Processor for Wearable ECG Classification." *IEEE Trans. Biomed. Circuits
+  Syst.*, 2022. (PubMed 35802543.)
+- **[SparrowSNN2024]** † "SparrowSNN: A Hardware/Software Co-design for Energy
+  Efficient ECG Classification." arXiv:2406.06543, 2024.
+- **[AxonalDelays2025]** † "Robust ECG signal classification using spiking neural
+  networks with axonal delays." *Neurocomputing*, 2025.
+  (ScienceDirect S0925231225029315.)
