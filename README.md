@@ -250,12 +250,9 @@ the time loop would help more than changing hardware.
 
 ## License
 
-NeuroBeat is available under AGPL-3.0 for open research and reproducible use.
-Commercial licensing is available for organizations that want to integrate, modify,
-or deploy NeuroBeat without AGPL obligations.
-
-NeuroBeat is dual-licensed: **AGPL-3.0** for open-source use (see [`LICENSE`](LICENSE)), or a
-**commercial license** for proprietary/closed-source use. See [`LICENSING.md`](LICENSING.md) for
-details and how to obtain a commercial license. Copyright (C) 2026 Talch87.
+NeuroBeat is available under **AGPL-3.0** for open research and reproducible use (see
+[`LICENSE`](LICENSE)). A **commercial license** is available for organizations that want to
+integrate, modify, or deploy NeuroBeat without AGPL obligations; see [`LICENSING.md`](LICENSING.md)
+for details and how to obtain one. Copyright (C) 2026 Talch87.
 
 Phase 1 proof of concept. Built on public PhysioNet data. Metrics per AAMI EC57.
